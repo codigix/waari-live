@@ -1,0 +1,128 @@
+// Floating AI Button Styles
+.floating-ai-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  z-index: 8888;
+  font-size: 1.5rem;
+  animation: floatIn 0.5s ease-out 0.2s both, float 3s ease-in-out infinite;
+
+  svg {
+    width: 28px;
+    height: 28px;
+    stroke-width: 2.5;
+  }
+
+  &:hover {
+    animation: floatIn 0.5s ease-out 0.2s both;
+    transform: scale(1.15) translateY(-5px);
+    box-shadow: 0 8px 28px rgba(102, 126, 234, 0.5);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 768px) {
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+
+    svg {
+      width: 26px;
+      height: 26px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    bottom: 15px;
+    right: 15px;
+    width: 52px;
+    height: 52px;
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+  }
+}
+
+// Badge showing "AI"
+.floating-ai-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ff4d4f;
+  color: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 4px 16px rgba(255, 77, 79, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+}
+
+// Animation for button entrance
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Floating animation (subtle up and down movement)
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+// Dark theme support
+@at-root [data-theme-version="dark"] {
+  .floating-ai-btn {
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+
+    &:hover {
+      box-shadow: 0 8px 28px rgba(102, 126, 234, 0.6);
+    }
+  }
+}
