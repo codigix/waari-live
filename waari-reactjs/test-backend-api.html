@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backend API Tester</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        border-bottom: 3px solid #007bff;
+        padding-bottom: 10px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-left: 4px solid #007bff;
+        border-radius: 4px;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin: 5px 5px 5px 0;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .response {
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .info {
+        background: #d1ecf1;
+        color: #0c5460;
+      }
+      .loading {
+        color: #666;
+      }
+      textarea {
+        width: 100%;
+        height: 100px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔧 Backend API Tester</h1>
+
+      <div class="test-section">
+        <h3>1️⃣ Test Backend Connection</h3>
+        <button onclick="testBackendConnection()">Test Connection</button>
+        <div id="connectionResult" class="response"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>2️⃣ Get Auth Token</h3>
+        <p>First, you need to be logged in to get a token</p>
+        <button onclick="getToken()">Get Token from LocalStorage</button>
+        <div id="tokenResult" class="response"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>3️⃣ Test Group Tours API</h3>
+        <button onclick="testGroupToursAPI()">Test /view-group-tour</button>
+        <div id="groupToursResult" class="response"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>4️⃣ Test Custom Tours API</h3>
+        <button onclick="testCustomToursAPI()">Test /view-custom-tour</button>
+        <div id="customToursResult" class="response"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>5️⃣ Direct Database Query Test</h3>
+        <p>This tests if your backend can directly access the database</p>
+        <button onclick="testDatabaseConnection()">Test DB Connection</button>
+        <div id="dbResult" class="response"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>6️⃣ Check Request Headers</h3>
+        <button onclick="checkHeaders()">Show Request Headers</button>
+        <div id="headersResult" class="response"></div>
+      </div>
+
+      <div class="test-section">
+        <h3>📊 Full Diagnostic Report</h3>
+        <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+        <div id="diagnosticResult" class="response"></div>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3000/api";
+
+      function log(elementId, message, type = "info") {
+        const element = document.getElementById(elementId);
+        element.textContent += message + "\n";
+        element.className = `response ${type}`;
+      }
+
+      function clear(elementId) {
+        document.getElementById(elementId).textContent = "";
+      }
+
+      async function testBackendConnection() {
+        clear("connectionResult");
+        log("connectionResult", "⏳ Testing backend connection...", "loading");
+
+        try {
+          const response = await fetch(`${API_URL}/health`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            log("connectionResult", "✅ Backend is running!\n", "success");
+            log("connectionResult", JSON.stringify(data, null, 2), "success");
+          } else {
+            log(
+              "connectionResult",
+              "❌ Backend responded but with error:\n",
+              "error"
+            );
+            log("connectionResult", JSON.stringify(data, null, 2), "error");
+          }
+        } catch (error) {
+          log("connectionResult", "❌ Backend is NOT running!\n", "error");
+          log("connectionResult", "Error: " + error.message, "error");
+          log(
+            "connectionResult",
+            "\nFix: Make sure backend is running with: npm start",
+            "error"
+          );
+        }
+      }
+
+      function getToken() {
+        clear("tokenResult");
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          log("tokenResult", "❌ No token found!\n", "error");
+          log("tokenResult", "You must be logged in first.\n", "error");
+          log(
+            "tokenResult",
+            'Steps:\n1. Go to http://localhost:5173\n2. Login\n3. Come back here and click "Get Token"',
+            "error"
+          );
+        } else {
+          log("tokenResult", "✅ Token found!\n", "success");
+          log("tokenResult", "Token: " + token, "success");
+        }
+      }
+
+      async function testGroupToursAPI() {
+        clear("groupToursResult");
+        log("groupToursResult", "⏳ Testing /view-group-tour...", "loading");
+
+        const token = localStorage.getItem("token");
+        if (!token) {
+          log("groupToursResult", "❌ No token! Please login first.", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `${API_URL}/view-group-tour?perPage=20&page=1`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                token: token,
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          if (response.ok) {
+            log("groupToursResult", "✅ API call successful!\n", "success");
+            log("groupToursResult", JSON.stringify(data, null, 2), "success");
+
+            if (data.data && data.data.length > 0) {
+              log(
+                "groupToursResult",
+                "\n✅ Found " + data.data.length + " tours!",
+                "success"
+              );
+            } else {
+              log(
+                "groupToursResult",
+                "\n⚠️ API working but returned 0 tours",
+                "info"
+              );
+            }
+          } else {
+            log(
+              "groupToursResult",
+              "❌ API Error: " + response.status + "\n",
+              "error"
+            );
+            log("groupToursResult", JSON.stringify(data, null, 2), "error");
+          }
+        } catch (error) {
+          log(
+            "groupToursResult",
+            "❌ Request failed: " + error.message,
+            "error"
+          );
+        }
+      }
+
+      async function testCustomToursAPI() {
+        clear("customToursResult");
+        log("customToursResult", "⏳ Testing /view-custom-tour...", "loading");
+
+        const token = localStorage.getItem("token");
+        if (!token) {
+          log("customToursResult", "❌ No token! Please login first.", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `${API_URL}/view-custom-tour?perPage=20&page=1`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                token: token,
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          if (response.ok) {
+            log("customToursResult", "✅ API call successful!\n", "success");
+            log("customToursResult", JSON.stringify(data, null, 2), "success");
+
+            if (data.data && data.data.length > 0) {
+              log(
+                "customToursResult",
+                "\n✅ Found " + data.data.length + " custom tours!",
+                "success"
+              );
+            } else {
+              log(
+                "customToursResult",
+                "\n⚠️ API working but returned 0 custom tours",
+                "info"
+              );
+            }
+          } else {
+            log(
+              "customToursResult",
+              "❌ API Error: " + response.status + "\n",
+              "error"
+            );
+            log("customToursResult", JSON.stringify(data, null, 2), "error");
+          }
+        } catch (error) {
+          log(
+            "customToursResult",
+            "❌ Request failed: " + error.message,
+            "error"
+          );
+        }
+      }
+
+      async function testDatabaseConnection() {
+        clear("dbResult");
+        log(
+          "dbResult",
+          "⏳ Testing database connection via backend...",
+          "loading"
+        );
+
+        const token = localStorage.getItem("token");
+        if (!token) {
+          log("dbResult", "❌ No token! Please login first.", "error");
+          return;
+        }
+
+        try {
+          // This would test a direct database endpoint if available
+          const response = await fetch(
+            `${API_URL}/view-group-tour?perPage=1000&page=1`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                token: token,
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          log("dbResult", "✅ Backend can connect to database!\n", "success");
+          log(
+            "dbResult",
+            "Total records in grouptours: " + (data.total || 0),
+            "success"
+          );
+
+          if (data.total === 0) {
+            log("dbResult", "\n⚠️ WARNING: Database has NO tours!", "error");
+            log(
+              "dbResult",
+              "\nAdd tours to database manually or check:\n1. Is database migrated?\n2. Are there tours in grouptours table?",
+              "error"
+            );
+          }
+        } catch (error) {
+          log(
+            "dbResult",
+            "❌ Cannot reach backend/database: " + error.message,
+            "error"
+          );
+        }
+      }
+
+      function checkHeaders() {
+        clear("headersResult");
+        const token = localStorage.getItem("token");
+        const clientcode = localStorage.getItem("clientcode");
+
+        log("headersResult", "📋 Current Headers:\n", "info");
+        log(
+          "headersResult",
+          "Token: " + (token ? "✅ Present" : "❌ Missing"),
+          token ? "success" : "error"
+        );
+        log(
+          "headersResult",
+          "ClientCode: " + (clientcode ? "✅ Present" : "❌ Missing"),
+          clientcode ? "success" : "error"
+        );
+
+        if (token) {
+          log(
+            "headersResult",
+            "\nToken Value: " + token.substring(0, 50) + "...",
+            "info"
+          );
+        }
+      }
+
+      async function runFullDiagnostic() {
+        clear("diagnosticResult");
+        log("diagnosticResult", "🔍 Running Full Diagnostic...\n", "info");
+
+        // 1. Backend connection
+        try {
+          const response = await fetch(`${API_URL}/health`);
+          log("diagnosticResult", "✅ Backend is running", "success");
+        } catch {
+          log(
+            "diagnosticResult",
+            "❌ Backend is NOT running - start it first!",
+            "error"
+          );
+          return;
+        }
+
+        // 2. Token
+        const token = localStorage.getItem("token");
+        if (!token) {
+          log(
+            "diagnosticResult",
+            "❌ No authentication token - login first!",
+            "error"
+          );
+          return;
+        }
+        log("diagnosticResult", "✅ Authentication token found", "success");
+
+        // 3. Group Tours
+        try {
+          const response = await fetch(
+            `${API_URL}/view-group-tour?perPage=100&page=1`,
+            {
+              headers: { token: token },
+            }
+          );
+          const data = await response.json();
+          const count = data.data ? data.data.length : 0;
+          log(
+            "diagnosticResult",
+            "✅ Group Tours API: " + count + " tours found",
+            count > 0 ? "success" : "info"
+          );
+        } catch (e) {
+          log(
+            "diagnosticResult",
+            "❌ Group Tours API failed: " + e.message,
+            "error"
+          );
+        }
+
+        // 4. Custom Tours
+        try {
+          const response = await fetch(
+            `${API_URL}/view-custom-tour?perPage=100&page=1`,
+            {
+              headers: { token: token },
+            }
+          );
+          const data = await response.json();
+          const count = data.data ? data.data.length : 0;
+          log(
+            "diagnosticResult",
+            "✅ Custom Tours API: " + count + " tours found",
+            count > 0 ? "success" : "info"
+          );
+        } catch (e) {
+          log(
+            "diagnosticResult",
+            "❌ Custom Tours API failed: " + e.message,
+            "error"
+          );
+        }
+
+        log("diagnosticResult", "\n📋 Diagnostic Complete!", "info");
+      }
+    </script>
+  </body>
+</html>
