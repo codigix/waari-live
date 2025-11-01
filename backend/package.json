@@ -4,7 +4,10 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev:server": "nodemon server.js",
+    "dev:client": "npm --prefix ../frontend run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
   },
   "keywords": [],
   "author": "",
@@ -34,9 +37,11 @@
     "number-to-words": "^1.2.4",
     "puppeteer": "^24.16.1",
     "socket.io": "^4.8.1",
-    "supabase": "^2.34.3"
+    "supabase": "^2.34.3",
+    "waari-live": "file:.."
   },
   "devDependencies": {
+    "concurrently": "^9.0.1",
     "jest": "^30.0.5",
     "nodemon": "^3.1.10"
   }

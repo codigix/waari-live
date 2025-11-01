@@ -138,8 +138,8 @@ const AddTourRoutes = require("./src/routes/AddTour");
 app.use("/api", AddTourRoutes);
 const enqueriesRoutes = require("./src/routes/EnqueriesRoutes");
 app.use("/api", enqueriesRoutes);
-// const aiRoutes = require("./src/routes/aiRoutes");
-// app.use("/api/ai", aiRoutes);
+const aiRoutes = require("./src/routes/aiRoutes");
+app.use("/api/ai", aiRoutes);
 
 // PDF Routes
 const pdfRoutes = require("./src/routes/pdfRoutes");

@@ -1,10 +1,12 @@
-const axios = require('axios');
+require("dotenv").config();
+const axios = require("axios");
 
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1';
+const MODEL_ID = (process.env.HUGGINGFACE_MODEL || "HuggingFaceH4/zephyr-7b-beta").trim();
+const HUGGINGFACE_API_URL = `https://api-inference.huggingface.co/models/${encodeURIComponent(MODEL_ID)}`;
 const API_KEY = process.env.HUGGINGFACE_API_KEY;
 
-const SYSTEM_PROMPT = You are Waari AI Assistant. You are helpful, friendly, and professional.
-You help users with questions about the Waari platform - a travel and tour booking platform.
+const SYSTEM_PROMPT = `You are Waari AI Assistant. You are helpful, friendly, and professional.
+You help users with questions about the Waari platform, a travel and tour booking platform.
 Waari specializes in:
 - Group Tours
 - Custom/Tailored Tours
@@ -12,26 +14,28 @@ Waari specializes in:
 - Tour Bookings
 - Travel Planning
 
-Be concise and helpful. Keep responses under 150 words.;
+Be concise and helpful. Keep responses under 150 words.`;
 
 const callHuggingFaceAPI = async (userMessage, conversationHistory = []) => {
   try {
     if (!API_KEY) {
-      throw new Error('HUGGINGFACE_API_KEY is not set in .env file');
+      throw new Error("HUGGINGFACE_API_KEY is not set");
     }
 
-    let conversationText = SYSTEM_PROMPT + '\n\n';
-    
-    if (conversationHistory && conversationHistory.length > 0) {
+    let conversationText = `${SYSTEM_PROMPT}\n\n`;
+
+    if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
       const recentMessages = conversationHistory.slice(-5);
-      recentMessages.forEach(msg => {
-        conversationText += User: $(.user_message)\nAssistant: $(.ai_response)\n\n;
+      recentMessages.forEach((msg) => {
+        const userText = msg?.user ?? msg?.user_message ?? msg?.message ?? "";
+        const assistantText = msg?.assistant ?? msg?.ai_response ?? msg?.response ?? msg?.reply ?? "";
+        if (userText || assistantText) {
+          conversationText += `User: ${userText}\nAssistant: ${assistantText}\n\n`;
+        }
       });
     }
 
-    conversationText += User: $()\nAssistant: ;
-
-    console.log('🤖 Calling Hugging Face API...');
+    conversationText += `User: ${userMessage}\nAssistant:`;
 
     const response = await axios.post(
       HUGGINGFACE_API_URL,
@@ -42,34 +46,50 @@ const callHuggingFaceAPI = async (userMessage, conversationHistory = []) => {
           temperature: 0.7,
           top_p: 0.9,
         },
+        options: {
+          wait_for_model: true,
+        },
       },
       {
         headers: {
-          Authorization: Bearer $(),
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
         },
         timeout: 60000,
       }
     );
 
-    let aiResponse = response.data[0]?.generated_text || '';
+    let aiResponse = response.data?.[0]?.generated_text ?? "";
 
-    if (aiResponse.includes('Assistant: ')) {
-      aiResponse = aiResponse.split('Assistant: ')[1] || aiResponse;
+    if (aiResponse.includes("Assistant:")) {
+      const splitText = aiResponse.split("Assistant:");
+      aiResponse = splitText[splitText.length - 1];
     }
 
-    aiResponse = aiResponse.trim().substring(0, 500);
+    aiResponse = aiResponse.trim().slice(0, 500);
 
     if (!aiResponse) {
-      throw new Error('No response from Hugging Face');
+      throw new Error("No response from Hugging Face");
     }
 
-    console.log('✅ Got response from Hugging Face');
-    return aiResponse;
-
+    return {
+      success: true,
+      text: aiResponse,
+    };
   } catch (error) {
-    console.error('❌ Hugging Face API Error:', error.message);
-    
-    return 'I apologize, but I'\''m having trouble processing your request right now. Please try again in a moment. For urgent assistance, please contact our support team.';
+    const status = error.response?.status;
+    const payload = error.response?.data;
+    console.error("Hugging Face API Error:", status || error.message, payload || "");
+
+    return {
+      success: false,
+      text: "",
+      error:
+        status === 401 || status === 403
+          ? "AUTHORIZATION_ERROR"
+          : "REQUEST_FAILED",
+      detail: typeof payload === "string" ? payload : undefined,
+    };
   }
 };
 

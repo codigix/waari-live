@@ -246,16 +246,18 @@ const AIAssistant = ({ isOpen, onClose }) => {
       timestamp: new Date(),
     };
 
+    const historyForApi = [...messages, userMessage];
+
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
 
     try {
-      // 🎯 Use WaariAIService with context awareness
       console.log("🚀 Processing query with ERP context");
       const response = await WaariAIService.processQueryWithContext(
         queryToProcess,
-        reduxState
+        reduxState,
+        historyForApi
       );
 
       console.log("✅ AI Response:", response);
