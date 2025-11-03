@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const RoleController = require("../controllers/Admin/roleController");
+const RoleController = require("../controllers/admin/roleController");
 
 // route to list roles
 router.get("/lists-user", RoleController.listsRole);

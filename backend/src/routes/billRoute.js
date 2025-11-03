@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const billingController = require("../controllers/Admin/billController");
+const billingController = require("../controllers/admin/billController");
 
 router.get("/total-billing", billingController.totalBilling);
 router.get("/total-bill-approved", billingController.totalBillApproved);
