@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const userController = require("../controllers/Admin/userController");
+const userController = require("../controllers/admin/userController");
 const upload = require("../middleware/uploads");
 // GET /api/user/user-profile?userId=1
 router.get("/user-profile", userController.userProfile);
