@@ -3,7 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 // Import coupon controller
-const couponController = require("../controllers/Admin/couponController");
+const couponController = require("../controllers/admin/CouponController");
 
 // Public routes
 router.post("/coupon-data", couponController.couponData);
