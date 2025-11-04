@@ -125,7 +125,7 @@ function Login() {
 
                     {/* Submit */}
                     <div className="text-center form-group mb-3">
-                      <button type="submit" className="btn btn-success btn-block" disabled={isLoading}>
+                      <button type="submit" className="btn btn-primary btn-block" disabled={isLoading}>
                         {isLoading ? "Signing In..." : "Sign In"}
                       </button>
                     </div>
