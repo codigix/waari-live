@@ -6,8 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "dev:server": "nodemon server.js",
-    "dev:client": "npm --prefix ../frontend run dev",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
+    "dev:client": "npm --prefix ../waari-reactjs run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "seed:group-tour": "node scripts/seedGroupTourData.js"
   },
   "keywords": [],
   "author": "",
