@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { get } from "../../../../services/apiServices";
-import Table from "../../../components/table/VTable";
-import Select from "react-select";
 import BackButton from "../../common/BackButton";
 
 const establishmentOption = [
@@ -22,12 +20,7 @@ const ViewUser = () => {
     if (!userId) return;
 
     try {
-      const token = localStorage.getItem("token");
-
-      const response = await get(`/view-users-data`, {
-        headers: { token },
-        params: { userId }, // pass as query param
-      });
+      const response = await get(`/view-users-data`, { userId });
 
       const data = response?.data?.data || {};
 
@@ -41,41 +34,6 @@ const ViewUser = () => {
           ? establishmentTypeOption.label
           : "",
       });
-
-      if (formik) {
-        formik.setValues({
-          userName: data.userName || "",
-          email: data.email || "",
-          contact: data.contact || "",
-          roleId: roleOptions.find((o) => o.value == data.roleId) || null,
-          positionId:
-            positionOptions.find((o) => o.value == data.positionId) || null,
-          departmentId:
-            departmentOptions.find((o) => o.value == data.departmentId) || null,
-          sectorId: sectorOptions.find((o) => o.value == data.sectorId) || null,
-          address: data.address || "",
-          gender: data.gender || "",
-          status: Boolean(data.status),
-          establishmentName: data.establishmentName || "",
-          establishmentTypeId: establishmentTypeOption || null,
-          adharNo: data.adharNo || "",
-          adharCard: data.adharCard || "",
-          pan: data.pan || "",
-          panNo: data.panNo || "",
-          city: data.city || "",
-          pincode: data.pincode || "",
-          state: data.state || "",
-          alternatePhone: data.alternatePhone || "",
-          shopAct: data.shopAct || "",
-          accName: data.accName || "",
-          accNo: data.accNo || "",
-          bankName: data.bankName || "",
-          branch: data.branch || "",
-          ifsc: data.ifsc || "",
-          cheque: data.cheque || "",
-          logo: data.logo || "",
-        });
-      }
     } catch (error) {
       setUserData({});
       console.error("Error fetching user:", error);

@@ -305,10 +305,7 @@ Fixing Order => Base + Typography >> General Layout + Grid >> Page Layout + Comp
 
 @font-face {
   font-family: 'Calibri';
-  src: url('./../assets/font/calibri.ttf') format('ttf'),
-    /* Modern Browsers */
-    url('./../assets/font/calibri.ttf') format('woff');
-  /* Older Browsers */
+  src: url('./../assets/font/Calibri-Font-Family/calibri.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }

@@ -8,7 +8,8 @@
     "dev:server": "nodemon server.js",
     "dev:client": "npm --prefix ../waari-reactjs run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "seed:group-tour": "node scripts/seedGroupTourData.js"
+    "seed:group-tour": "node scripts/seedGroupTourData.js",
+    "seed:lookups": "node scripts/seedLookupData.js"
   },
   "keywords": [],
   "author": "",
