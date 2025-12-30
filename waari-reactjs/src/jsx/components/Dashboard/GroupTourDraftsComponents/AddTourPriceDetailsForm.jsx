@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { get, post } from "../../../../services/apiServices";
@@ -100,10 +100,9 @@ const AddTourPriceDetailsForm = ({ groupTourId, toursData }) => {
     });
 
     useEffect(() => {
-			if (toursData && toursData.tourPrice.length) {
-                formik.setFieldValue("roomsharingprice", toursData.tourPrice);
-            }
-
+        if (Array.isArray(toursData?.tourPrice) && toursData.tourPrice.length) {
+            formik.setFieldValue("roomsharingprice", toursData.tourPrice);
+        }
     }, [toursData])
     
     return (

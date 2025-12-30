@@ -10,4 +10,10 @@ router.post(
   uploadController.uploadDocument
 );
 
+router.post(
+  "/user/image-upload",
+  uploadMiddleware.single("image"),
+  uploadController.uploadDocument
+);
+
 module.exports = router;
