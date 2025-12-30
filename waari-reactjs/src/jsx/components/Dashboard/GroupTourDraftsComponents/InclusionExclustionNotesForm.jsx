@@ -36,6 +36,39 @@ const InclusionExclustionNotesForm = ({ groupTourId, toursData }) => {
         ),
     });
 
+    const normalizeDescriptionList = (items) => {
+        if (!items) {
+            return [{ description: "" }];
+        }
+        const list = Array.isArray(items) ? items : [items];
+        const mapped = list.map((item) => {
+            if (typeof item === "string") {
+                return { description: item };
+            }
+            return {
+                description:
+                    item?.description ?? item?.note ?? "",
+            };
+        });
+        return mapped.length ? mapped : [{ description: "" }];
+    };
+
+    const normalizeNoteList = (items) => {
+        if (!items) {
+            return [{ note: "" }];
+        }
+        const list = Array.isArray(items) ? items : [items];
+        const mapped = list.map((item) => {
+            if (typeof item === "string") {
+                return { note: item };
+            }
+            return {
+                note: item?.note ?? item?.description ?? "",
+            };
+        });
+        return mapped.length ? mapped : [{ note: "" }];
+    };
+
     const formik = useFormik({
         initialValues: {
             inclusions: [{ description: "" }],
@@ -64,13 +97,26 @@ const InclusionExclustionNotesForm = ({ groupTourId, toursData }) => {
     });
 
     useEffect(() => {
-        if (toursData && toursData.tourPrice) {
-            if (toursData.inclusions.length)
-                formik.setFieldValue("inclusions", toursData.inclusions);
-            if (toursData.exclusions.length)
-                formik.setFieldValue("exclusions", toursData.exclusions);
-            if (toursData.note.length)
-                formik.setFieldValue("note", toursData.note);
+        if (!toursData) {
+            return;
+        }
+        if (toursData.inclusions !== undefined) {
+            formik.setFieldValue(
+                "inclusions",
+                normalizeDescriptionList(toursData.inclusions)
+            );
+        }
+        if (toursData.exclusions !== undefined) {
+            formik.setFieldValue(
+                "exclusions",
+                normalizeDescriptionList(toursData.exclusions)
+            );
+        }
+        if (toursData.note !== undefined || toursData.notes !== undefined) {
+            formik.setFieldValue(
+                "note",
+                normalizeNoteList(toursData.note ?? toursData.notes)
+            );
         }
     }, [toursData]);
 
