@@ -9,7 +9,8 @@
     "dev:client": "npm --prefix ../waari-reactjs run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "seed:group-tour": "node scripts/seedGroupTourData.js",
-    "seed:lookups": "node scripts/seedLookupData.js"
+    "seed:lookups": "node scripts/seedLookupData.js",
+    "seed:tours": "node scripts/seedTourFixtures.js"
   },
   "keywords": [],
   "author": "",
