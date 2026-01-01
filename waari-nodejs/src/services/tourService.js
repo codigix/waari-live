@@ -9,9 +9,11 @@ const {
   departureTypes,
   countries,
   priorities,
+  hotelCategories,
   namePrefixes,
   enquiryReferences,
   guestReferenceDropdown,
+  groupTourEnquiries,
   groupTours,
   tailorMadeTours,
   customTours,
@@ -31,12 +33,23 @@ const {
   tailorMadeDetailOverrides,
   groupTourGuestTemplate,
   groupTourGuests,
+  manualGuestDirectory,
+  loyaltyStatusOverrides,
+  groupFamilyHeadOverrides,
+  groupPaymentOverrides,
+  customPaymentOverrides,
   customEnquiryDetailTemplate,
   customEnquiryDetails,
   customPackageTemplate,
   customEnquiryPackages,
+  groupCallFollowUps,
+  groupCancellationOverrides,
+  groupEnquiryCancellationLogs,
+  groupPlanEnquiryAssignments,
+  customPlanEnquiryAssignments,
 } = require("../data/tourDataStore");
 const { persistTourFixture } = require("../data/toursDataLoader");
+const pool = require("../../database/pool");
 
 const toPositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -47,6 +60,7 @@ const toPositiveInt = (value, fallback) => {
 };
 
 const normalize = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
+const trimTextValue = (value) => (typeof value === "string" ? value.trim() : "");
 
 const normalizeCategory = (value, fallback = "GROUP") => {
   const base = value === undefined || value === null || value === "" ? fallback : value;
@@ -106,7 +120,13 @@ const matchesCity = (tour, cityId) => {
   if (!parsed) {
     return true;
   }
-  return Number(tour.cityId) === parsed;
+  if (Number(tour.cityId) === parsed) {
+    return true;
+  }
+  if (Array.isArray(tour.cityIds)) {
+    return tour.cityIds.some((value) => Number(value) === parsed);
+  }
+  return false;
 };
 
 const matchesTravelMonth = (value, filter) => {
@@ -159,6 +179,74 @@ const DEFAULT_BG_IMAGE = "https://images.pexels.com/photos/346885/pexels-photo-3
 const DEFAULT_WEBSITE_BANNER = "https://images.pexels.com/photos/237272/pexels-photo-237272.jpeg?auto=compress&cs=tinysrgb&w=600";
 const DEFAULT_WEBSITE_DESCRIPTION =
   "<p>Plan immersive journeys with Waari's curated departures and concierge support.</p>";
+
+const BILLING_DEFAULT_METRICS = {
+  loyaltyBooking: 9,
+  welcomeBooking: 4,
+  referralRate: 37,
+  nextRankCount: 5,
+  topTenRankCount: 8,
+  topFiveRankCount: 3,
+  currentBookingCount: 42,
+};
+
+const DEFAULT_BIRTHDAY_SEEDS = [
+  {
+    familyHeadName: "Amit Sharma",
+    contact: "+91 9823012345",
+    dobOffsetDays: -12000,
+    marriageOffsetDays: -3200,
+  },
+  {
+    familyHeadName: "Priya Patel",
+    contact: "+91 9876544110",
+    dobOffsetDays: -11800,
+    marriageOffsetDays: -2900,
+  },
+  {
+    familyHeadName: "Rohan Kulkarni",
+    contact: "+91 9811122233",
+    dobOffsetDays: -11550,
+    marriageOffsetDays: -2500,
+  },
+];
+
+const BILLING_DEFAULT_TOP_SALES = [
+  {
+    userName: "Sales Admin",
+    domesticCountGt: 6,
+    internationalCountGt: 2,
+    total_count_gt: 8,
+    domesticCountCt: 4,
+    internationalCountCt: 1,
+    total_count_ct: 5,
+    total_count_overall: 13,
+    todaysBooking: 1,
+    isFirst: true,
+  },
+  {
+    userName: "Neeraj Joshi",
+    domesticCountGt: 4,
+    internationalCountGt: 1,
+    total_count_gt: 5,
+    domesticCountCt: 3,
+    internationalCountCt: 1,
+    total_count_ct: 4,
+    total_count_overall: 9,
+    todaysBooking: 0,
+  },
+  {
+    userName: "Anita Rao",
+    domesticCountGt: 3,
+    internationalCountGt: 2,
+    total_count_gt: 5,
+    domesticCountCt: 2,
+    internationalCountCt: 1,
+    total_count_ct: 3,
+    total_count_overall: 8,
+    todaysBooking: 1,
+  },
+];
 
 const cloneValue = (value, fallback) => JSON.parse(JSON.stringify((value !== undefined ? value : fallback)));
 
@@ -664,6 +752,12 @@ const buildCustomEnquiryDetail = (enquiryCustomId) => {
     : customEnquiryDetailTemplate.cityIds;
   const cityIds = rawCityIds.filter((value) => toPositiveInt(value, null));
   const cityDetails = mapCities(cityIds);
+  const primaryCityId = cityIds.length ? cityIds[0] : null;
+  const enquiryDetailCustomId =
+    toPositiveInt(override.enquiryDetailCustomId, null) ||
+    toPositiveInt(base.enquiryDetailCustomId, null) ||
+    toPositiveInt(customEnquiryDetailTemplate.enquiryDetailCustomId, null) ||
+    Number(`${id}01`);
 
   const ageArray = Array.isArray(override.age)
     ? override.age
@@ -705,6 +799,8 @@ const buildCustomEnquiryDetail = (enquiryCustomId) => {
     child: override.child ?? base.child ?? customEnquiryDetailTemplate.child,
     age: JSON.stringify(ageArray),
     cityIds,
+    cityId: override.cityId ?? base.cityId ?? primaryCityId,
+    enquiryDetailCustomId,
     cities: JSON.stringify(cityIds),
     cityDetails,
     rooms: override.rooms ?? customEnquiryDetailTemplate.rooms,
@@ -1175,6 +1271,179 @@ const buildListResponse = (items, page, perPage, filters = {}, message = "") => 
 
 const DEFAULT_FOLLOW_UP_USER_ID = 9001;
 
+const DEFAULT_ASSIGNABLE_USERS = [
+  {
+    userId: DEFAULT_FOLLOW_UP_USER_ID,
+    userName: "Ananya Sharma",
+    roleName: "Senior Travel Consultant",
+    email: "ananya.sharma@waari.travel",
+    contact: "9767807070",
+    department: "Presales",
+    location: "Pune",
+    availability: "Available",
+    ongoingLeads: 8,
+  },
+  {
+    userId: 9002,
+    userName: "Vikram Rao",
+    roleName: "Group Tour Specialist",
+    email: "vikram.rao@waari.travel",
+    contact: "9822334455",
+    department: "Group Tours",
+    location: "Mumbai",
+    availability: "In Follow-up",
+    ongoingLeads: 6,
+  },
+  {
+    userId: 9003,
+    userName: "Lisa Pereira",
+    roleName: "Custom Experience Lead",
+    email: "lisa.pereira@waari.travel",
+    contact: "9811122233",
+    department: "Custom Tours",
+    location: "Bengaluru",
+    availability: "Available",
+    ongoingLeads: 5,
+  },
+  {
+    userId: 9004,
+    userName: "Rahul Menon",
+    roleName: "Corporate Travel Manager",
+    email: "rahul.menon@waari.travel",
+    contact: "9890098900",
+    department: "Corporate",
+    location: "Hyderabad",
+    availability: "Reviewing",
+    ongoingLeads: 7,
+  },
+  {
+    userId: 9005,
+    userName: "Sia Kapadia",
+    roleName: "Luxury Journey Advisor",
+    email: "sia.kapadia@waari.travel",
+    contact: "9833112233",
+    department: "Premium",
+    location: "Delhi",
+    availability: "Available",
+    ongoingLeads: 4,
+  },
+];
+
+let assignableUsersCache = [];
+
+const mapDefaultAssignableUsers = () =>
+  DEFAULT_ASSIGNABLE_USERS.map((user, index) => ({
+    userId: user.userId,
+    userName: user.userName,
+    roleName: user.roleName,
+    email: user.email,
+    contact: user.contact,
+    department: user.department,
+    location: user.location,
+    availability: user.availability,
+    ongoingLeads: user.ongoingLeads,
+    priority: index + 1,
+  }));
+
+const setAssignableUsersCache = (users) => {
+  assignableUsersCache = users && users.length ? users : mapDefaultAssignableUsers();
+  return assignableUsersCache;
+};
+
+const getAssignableUsersCache = () => {
+  if (!assignableUsersCache || !assignableUsersCache.length) {
+    assignableUsersCache = mapDefaultAssignableUsers();
+  }
+  return assignableUsersCache;
+};
+
+const formatAssignableUserRow = (row, index = 0) => {
+  const locationParts = [trimTextValue(row.city), trimTextValue(row.state)].filter(Boolean);
+  return {
+    userId: row.userId,
+    userName: trimTextValue(row.userName) || trimTextValue(row.fullName) || `User ${row.userId}`,
+    roleName: trimTextValue(row.roleName),
+    email: trimTextValue(row.email),
+    contact: trimTextValue(row.contact),
+    department: trimTextValue(row.departmentName),
+    location: locationParts.join(", "),
+    availability: row.status ? "Available" : "Unavailable",
+    ongoingLeads: 0,
+    priority: index + 1,
+  };
+};
+
+const listAssignToUsers = async () => {
+  const [rows] = await pool.query(`
+    SELECT
+      u.userId,
+      u.userName,
+      TRIM(CONCAT(u.firstName, ' ', u.lastName)) AS fullName,
+      u.email,
+      u.contact,
+      u.status,
+      u.city,
+      u.state,
+      r.roleName,
+      d.departmentName
+    FROM users u
+    LEFT JOIN roles r ON r.roleId = u.roleId
+    LEFT JOIN departments d ON d.departmentId = u.departmentId
+    WHERE u.status = 1
+    ORDER BY COALESCE(NULLIF(u.userName, ''), NULLIF(fullName, ''), u.email, u.contact) ASC
+  `);
+  const users = rows.length ? rows.map((row, index) => formatAssignableUserRow(row, index)) : mapDefaultAssignableUsers();
+  return setAssignableUsersCache(users);
+};
+
+const resolveAssignableUserMeta = (userId) => {
+  const options = getAssignableUsersCache();
+  if (!options.length) {
+    return { userId: DEFAULT_FOLLOW_UP_USER_ID, userName: "Waari Team" };
+  }
+  if (!userId) {
+    return options[0];
+  }
+  return options.find((user) => Number(user.userId) === Number(userId)) || options[0];
+};
+
+const fetchAssignableUserMeta = async (userId) => {
+  if (!userId) {
+    const options = getAssignableUsersCache();
+    return options[0] || { userId: DEFAULT_FOLLOW_UP_USER_ID, userName: "Waari Team" };
+  }
+  const options = getAssignableUsersCache();
+  const cached = options.find((user) => Number(user.userId) === Number(userId));
+  if (cached) {
+    return cached;
+  }
+  const [rows] = await pool.query(`
+    SELECT
+      u.userId,
+      u.userName,
+      TRIM(CONCAT(u.firstName, ' ', u.lastName)) AS fullName,
+      u.email,
+      u.contact,
+      u.status,
+      u.city,
+      u.state,
+      r.roleName,
+      d.departmentName
+    FROM users u
+    LEFT JOIN roles r ON r.roleId = u.roleId
+    LEFT JOIN departments d ON d.departmentId = u.departmentId
+    WHERE u.userId = ?
+    LIMIT 1
+  `, [userId]);
+  if (!rows.length) {
+    return { userId, userName: `User ${userId}` };
+  }
+  const cache = getAssignableUsersCache();
+  const user = formatAssignableUserRow(rows[0], cache.length);
+  setAssignableUsersCache([...cache, user]);
+  return user;
+};
+
 const groupFollowUpPlan = [
   {
     groupTourId: 101,
@@ -1244,7 +1513,7 @@ const customFollowUpPlan = [
     nextFollowUpTime: "11:45 AM",
   },
   {
-    enquiryCustomId: 302,
+    enquiryCustomId: 304,
     assignedUserId: DEFAULT_FOLLOW_UP_USER_ID,
     assignedUserName: "Ananya Sharma",
     nextFollowUpOffset: -1,
@@ -1253,6 +1522,27 @@ const customFollowUpPlan = [
   },
 ];
 
+const MANUAL_GROUP_ENQUIRY_OFFSET = 600000;
+
+const nextManualGroupEnquiryId = () =>
+  groupTourEnquiries.reduce(
+    (max, record) => Math.max(max, Number(record && record.enquiryGroupId) || 0),
+    MANUAL_GROUP_ENQUIRY_OFFSET
+  ) + 1;
+
+const normalizeFollowUpDate = (value, fallbackDate = startOfToday()) => {
+  const parsed = toDate(value);
+  if (parsed) {
+    return formatDateOnly(parsed);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const normalized = new Date(value);
+    if (!Number.isNaN(normalized.getTime())) {
+      return formatDateOnly(normalized);
+    }
+  }
+  return formatDateOnly(fallbackDate);
+};
 const groupPlanEnquiries = [
   {
     planEnqId: 8101,
@@ -1541,6 +1831,14 @@ const addDaysToDate = (baseDate, offset = 0) => {
 
 const sanitizeText = (value) => (typeof value === "string" ? value.trim() : value || "");
 
+const selectSanitizedValue = (value, fallback = "") => {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  const text = sanitizeText(value);
+  return text || fallback;
+};
+
 const classifyFollowUpByDate = (dateStr) => {
   const todayStr = formatDateOnly(startOfToday());
   if (!dateStr) {
@@ -1647,6 +1945,15 @@ const resolvePlanEnquiryReference = (plan = {}, fallbackId) => {
   };
 };
 
+const resolvePriorityMeta = (priorityId, fallbackName = "") => {
+  const id = toPositiveInt(priorityId, null);
+  if (!id) {
+    return { priorityId: null, priorityName: fallbackName }; 
+  }
+  const priority = priorities.find((item) => Number(item.priorityId) === id);
+  return { priorityId: id, priorityName: priority ? priority.priorityName : fallbackName || `Priority ${id}` };
+};
+
 const createGroupPlanEnquiryRecord = (plan, baseDate, index) => {
   const tour = resolveGroupTourRecord(plan.groupTourId || plan.enquiryGroupId);
   if (!tour) {
@@ -1661,6 +1968,8 @@ const createGroupPlanEnquiryRecord = (plan, baseDate, index) => {
         }
       : resolveAssignedUser(tour);
   const enquiryGroupId = plan.enquiryGroupId || tour.groupTourId;
+  const enquiryDetail = buildGroupEnquiryDetail(enquiryGroupId) || {};
+  const priorityMeta = resolvePriorityMeta(enquiryDetail.priorityId, enquiryDetail.priorityName || "");
   const enquiryOffset = plan.enquiryDateOffset ?? -(index + 2);
   const followUpOffset = plan.nextFollowUpOffset ?? index + 1;
   return {
@@ -1676,12 +1985,18 @@ const createGroupPlanEnquiryRecord = (plan, baseDate, index) => {
     noOfTravelPeople: plan.noOfTravelPeople || Math.min(6, resolveGroupPaxCount(tour)),
     enquiryReferId: reference.enquiryReferId,
     enquiryReferName: reference.enquiryReferName,
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    guestRefId: enquiryDetail.guestRefId || "",
+    familyHeadNo: toPositiveInt(enquiryDetail.familyHeadNo, null) || 1,
     startDate: tour.startDate,
     endDate: tour.endDate,
     enquiryDate: formatDateOnly(addDaysToDate(baseDate, enquiryOffset)),
     nextFollowUp: formatDateOnly(addDaysToDate(baseDate, followUpOffset)),
+    nextFollowUpTime: plan.nextFollowUpTime || "10:00 AM",
     assignedUserId: assignedMeta.assignedUserId,
     assignedUserName: assignedMeta.assignedUserName,
+    notes: plan.notes || "",
   };
 };
 
@@ -1703,6 +2018,19 @@ const createCustomPlanEnquiryRecord = (plan, baseDate, index) => {
     formatDateOnly(addDaysToDate(baseDate, travelEndOffset));
   const priceMin = toNumber(plan.pricePerPersonMin, toNumber(detail.budgetPerPerson, 45000));
   const priceMax = toNumber(plan.pricePerPersonMax, Math.max(priceMin, priceMin + 7000));
+  const priorityMeta = resolvePriorityMeta(plan.priorityId || detail.priorityId, detail.priorityName || "Medium");
+  const assignedMeta =
+    plan.assignedUserId || plan.assignedUserName
+      ? {
+          assignedUserId: toPositiveInt(plan.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID,
+          assignedUserName: plan.assignedUserName || "Waari Team",
+        }
+      : resolveAssignableUserMeta(plan.assignedUserId);
+  const familyHeadNo = toPositiveInt(plan.familyHeadNo, null) || toPositiveInt(detail.familyHeadNo, null) || 1;
+  const nextFollowUpOffset = plan.nextFollowUpOffset ?? index + 1;
+  const nextFollowUp = plan.nextFollowUp || formatDateOnly(addDaysToDate(baseDate, nextFollowUpOffset));
+  const nextFollowUpTime = plan.nextFollowUpTime || "10:00 AM";
+  const enquiryDate = plan.enquiryDate || formatDateOnly(addDaysToDate(baseDate, -(index + 1)));
   return {
     id: plan.planEnqId,
     planEnqId: plan.planEnqId,
@@ -1720,7 +2048,120 @@ const createCustomPlanEnquiryRecord = (plan, baseDate, index) => {
     enquiryReferId: reference.enquiryReferId,
     enquiryReferName: reference.enquiryReferName,
     cityName: detail.cityName || "",
-    priorityName: detail.priorityName || "Medium",
+    destinationId: detail.destinationId || null,
+    destinationName: detail.destinationName || "",
+    countryId: detail.countryId || null,
+    countryName: detail.countryName || "",
+    stateId: detail.stateId || null,
+    stateName: detail.stateName || "",
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    familyHeadNo,
+    nextFollowUp,
+    nextFollowUpTime,
+    enquiryDate,
+    assignedUserId: assignedMeta.userId,
+    assignedUserName: assignedMeta.userName,
+    mealPlanId: toPositiveInt(plan.mealPlanId, null) || detail.mealPlanId || null,
+    hotelCatId: toPositiveInt(plan.hotelCatId, null) || detail.hotelCatId || null,
+    rooms: toPositiveInt(plan.rooms, null) || toPositiveInt(detail.rooms, null) || null,
+    notes: plan.notes || detail.notes || "",
+  };
+};
+
+const applyGroupPlanAssignmentOverride = (record) => {
+  const override = groupPlanEnquiryAssignments[record.planEnqId];
+  if (!override) {
+    return record;
+  }
+  const priorityMeta = override.priorityId
+    ? resolvePriorityMeta(override.priorityId, override.priorityName || record.priorityName)
+    : { priorityId: record.priorityId, priorityName: record.priorityName };
+  const referenceMeta = override.enquiryReferId
+    ? resolvePlanEnquiryReference({ enquiryReferId: override.enquiryReferId }, record.enquiryReferId)
+    : { enquiryReferId: record.enquiryReferId, enquiryReferName: record.enquiryReferName };
+  const assignedMeta = override.assignedUserId || override.assignedUserName
+    ? {
+        assignedUserId: toPositiveInt(override.assignedUserId, record.assignedUserId) || record.assignedUserId,
+        assignedUserName:
+          override.assignedUserName ||
+          resolveAssignableUserMeta(override.assignedUserId || record.assignedUserId).userName,
+      }
+    : { assignedUserId: record.assignedUserId, assignedUserName: record.assignedUserName };
+  const adults = toPositiveInt(override.adults, null);
+  const child = toPositiveInt(override.child, null);
+  const paxOverride = toPositiveInt(override.noOfTravelPeople, null);
+  const totalPax = Math.max(
+    1,
+    paxOverride || (adults || 0) + (child || 0) || record.noOfTravelPeople || 1
+  );
+  return {
+    ...record,
+    firstName: override.firstName || record.firstName,
+    groupName: override.groupName || record.groupName,
+    contactNo: override.contactNo || record.contactNo,
+    email: override.email || record.email,
+    noOfTravelPeople: totalPax,
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    guestRefId: override.guestRefId || record.guestRefId,
+    familyHeadNo: toPositiveInt(override.familyHeadNo, null) || record.familyHeadNo || 1,
+    nextFollowUp: override.nextFollowUp || record.nextFollowUp,
+    nextFollowUpTime: override.nextFollowUpTime || record.nextFollowUpTime,
+    assignedUserId: assignedMeta.assignedUserId,
+    assignedUserName: assignedMeta.assignedUserName,
+    notes: override.notes || record.notes,
+  };
+};
+
+const applyCustomPlanAssignmentOverride = (record) => {
+  const override = customPlanEnquiryAssignments[record.planEnqId];
+  if (!override) {
+    return record;
+  }
+  const priorityMeta = override.priorityId
+    ? resolvePriorityMeta(override.priorityId, override.priorityName || record.priorityName)
+    : { priorityId: record.priorityId, priorityName: record.priorityName };
+  const referenceMeta = override.enquiryReferId
+    ? resolvePlanEnquiryReference({ enquiryReferId: override.enquiryReferId }, record.enquiryReferId)
+    : { enquiryReferId: record.enquiryReferId, enquiryReferName: record.enquiryReferName };
+  const assignedMeta = override.assignedUserId || override.assignedUserName
+    ? {
+        assignedUserId: toPositiveInt(override.assignedUserId, record.assignedUserId) || record.assignedUserId,
+        assignedUserName:
+          override.assignedUserName ||
+          resolveAssignableUserMeta(override.assignedUserId || record.assignedUserId).userName,
+      }
+    : { assignedUserId: record.assignedUserId, assignedUserName: record.assignedUserName };
+  const paxOverride = toPositiveInt(override.noOfTravelPeople, null);
+  return {
+    ...record,
+    firstName: override.firstName || record.firstName,
+    groupName: override.groupName || record.groupName,
+    contactNo: override.contactNo || record.contactNo,
+    email: override.email || record.email,
+    destinationId: override.destinationId || record.destinationId,
+    destinationName: override.destinationName || record.destinationName,
+    countryId: override.countryId || record.countryId,
+    countryName: override.countryName || record.countryName,
+    stateId: override.stateId || record.stateId,
+    stateName: override.stateName || record.stateName,
+    noOfTravelPeople: Math.max(1, paxOverride || record.noOfTravelPeople || 1),
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    familyHeadNo: toPositiveInt(override.familyHeadNo, null) || record.familyHeadNo || 1,
+    nextFollowUp: override.nextFollowUp || record.nextFollowUp,
+    nextFollowUpTime: override.nextFollowUpTime || record.nextFollowUpTime,
+    assignedUserId: assignedMeta.assignedUserId,
+    assignedUserName: assignedMeta.assignedUserName,
+    hotelCatId: override.hotelCatId || record.hotelCatId,
+    mealPlanId: override.mealPlanId || record.mealPlanId,
+    rooms: override.rooms || record.rooms,
+    notes: override.notes || record.notes,
   };
 };
 
@@ -1734,7 +2175,10 @@ const buildGroupPlanEnquiryRecords = () => {
           enquiryGroupId: tour.groupTourId,
           groupTourId: tour.groupTourId,
         }));
-  return seeds.map((plan, index) => createGroupPlanEnquiryRecord(plan, baseDate, index)).filter(Boolean);
+  return seeds
+    .map((plan, index) => createGroupPlanEnquiryRecord(plan, baseDate, index))
+    .filter(Boolean)
+    .map((record) => applyGroupPlanAssignmentOverride(record));
 };
 
 const buildCustomPlanEnquiryRecords = () => {
@@ -1746,7 +2190,129 @@ const buildCustomPlanEnquiryRecords = () => {
           planEnqId: 9200 + index + 1,
           enquiryCustomId: id,
         }));
-  return seeds.map((plan, index) => createCustomPlanEnquiryRecord(plan, baseDate, index)).filter(Boolean);
+  return seeds
+    .map((plan, index) => createCustomPlanEnquiryRecord(plan, baseDate, index))
+    .filter(Boolean)
+    .map((record) => applyCustomPlanAssignmentOverride(record));
+};
+
+const findGroupPlanEnquiryById = (planEnqId) => {
+  const id = toPositiveInt(planEnqId, null);
+  if (!id) {
+    return null;
+  }
+  return buildGroupPlanEnquiryRecords().find((entry) => Number(entry.planEnqId) === id) || null;
+};
+
+const findCustomPlanEnquiryById = (planEnqId) => {
+  const id = toPositiveInt(planEnqId, null);
+  if (!id) {
+    return null;
+  }
+  return buildCustomPlanEnquiryRecords().find((entry) => Number(entry.planEnqId) === id) || null;
+};
+
+const buildGroupPlanEnquiryView = (record) => {
+  if (!record) {
+    return null;
+  }
+  const tour = resolveGroupTourRecord(record.groupTourId);
+  const detail = buildGroupEnquiryDetail(record.enquiryGroupId) || {};
+  const paxFallback =
+    toPositiveInt(record.noOfTravelPeople, null) ||
+    toPositiveInt(detail.adults, null) + toPositiveInt(detail.child, null) ||
+    resolveGroupPaxCount(tour) ||
+    1;
+  const priorityMeta = resolvePriorityMeta(record.priorityId || detail.priorityId, record.priorityName || detail.priorityName || "");
+  const referenceMeta = resolvePlanEnquiryReference({ enquiryReferId: record.enquiryReferId }, detail.enquiryReferId);
+  const familyHeadNo = toPositiveInt(record.familyHeadNo, null) || toPositiveInt(detail.familyHeadNo, null) || 1;
+  const adults = record.adults ?? toPositiveInt(detail.adults, null) ?? null;
+  const child = record.child ?? toPositiveInt(detail.child, null) ?? null;
+  return {
+    planEnqId: record.planEnqId,
+    enquiryGroupId: record.enquiryGroupId,
+    groupTourId: record.groupTourId,
+    tourName: record.tourName || tour?.tourName || detail.tourName || "",
+    groupName: record.groupName || detail.groupName || tour?.groupName || tour?.tourName || "",
+    firstName: record.firstName || detail.fullName || deriveGuestName(tour),
+    contactNo: record.contactNo || detail.contact || resolveContact(tour),
+    email: record.email || detail.email || tour?.email || "",
+    noOfTravelPeople: paxFallback,
+    adults,
+    child,
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    hearAbout: referenceMeta.enquiryReferId,
+    guestRefId: record.guestRefId || detail.guestRefId || "",
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    familyHeadNo,
+    nextFollowUp: record.nextFollowUp || null,
+    nextFollowUpTime: record.nextFollowUpTime || "",
+    enquiryDate: record.enquiryDate || null,
+    startDate: record.startDate || tour?.startDate || null,
+    endDate: record.endDate || tour?.endDate || null,
+    assignedUserId: record.assignedUserId || null,
+    assignedUserName: record.assignedUserName || "Waari Team",
+    notes: record.notes || "",
+    cityName: tour?.cityName || "",
+    destinationId: tour?.destinationId || null,
+    countryId: tour?.countryId || null,
+    stateId: tour?.stateId || null,
+  };
+};
+
+const buildCustomPlanEnquiryView = (record) => {
+  if (!record) {
+    return null;
+  }
+  const detail = buildCustomEnquiryDetail(record.enquiryCustomId) || {};
+  const startDate = record.startDate || detail.startDate || null;
+  const endDate = record.endDate || detail.endDate || null;
+  const priorityMeta = resolvePriorityMeta(
+    record.priorityId || detail.priorityId,
+    record.priorityName || detail.priorityName || "Medium"
+  );
+  const referenceMeta = resolvePlanEnquiryReference({ enquiryReferId: record.enquiryReferId }, detail.enquiryReferId);
+  const familyHeadNo = toPositiveInt(record.familyHeadNo, null) || toPositiveInt(detail.familyHeadNo, null) || 1;
+  return {
+    planEnqId: record.planEnqId,
+    enquiryCustomId: record.enquiryCustomId,
+    firstName: record.firstName || detail.fullName || detail.contactName || "",
+    groupName: record.groupName || detail.groupName || detail.tourName || "",
+    contactNo: record.contactNo || detail.contact || detail.phoneNo || "",
+    email: record.email || detail.mailId || "",
+    destinationId: record.destinationId || detail.destinationId || null,
+    destinationName: record.destinationName || detail.destinationName || "",
+    countryId: record.countryId || detail.countryId || null,
+    countryName: record.countryName || detail.countryName || "",
+    stateId: record.stateId || detail.stateId || null,
+    stateName: record.stateName || detail.stateName || "",
+    startDate,
+    endDate,
+    noOfTravelPeople: toPositiveInt(record.noOfTravelPeople, null) || toPositiveInt(detail.adults, null) || 2,
+    adults: detail.adults || null,
+    child: detail.child || null,
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    hearAbout: referenceMeta.enquiryReferId,
+    cityIds: detail.cityIds || [],
+    cities: detail.cities || "[]",
+    requirements: detail.requirements || [],
+    experiences: detail.experiences || [],
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    familyHeadNo,
+    nextFollowUp: record.nextFollowUp || null,
+    nextFollowUpTime: record.nextFollowUpTime || "",
+    assignedUserId: record.assignedUserId || null,
+    assignedUserName: record.assignedUserName || "Waari Team",
+    hotelCatId: toPositiveInt(record.hotelCatId, null) || null,
+    mealPlanId: toPositiveInt(record.mealPlanId, null) || null,
+    rooms: toPositiveInt(record.rooms, null) || null,
+    notes: record.notes || "",
+    enquiryDate: record.enquiryDate || null,
+  };
 };
 
 const filterPlanEnquiryRecord = (record, filters = {}, options = {}) => {
@@ -1895,9 +2461,55 @@ const createCustomFollowUpRecord = (plan, baseDate) => {
   };
 };
 
+const buildManualGroupFollowUpRecords = () => {
+  if (!groupTourEnquiries.length) {
+    return [];
+  }
+  return groupTourEnquiries.map((entry) => {
+    const tour = resolveGroupTourRecord(entry.groupTourId || entry.enquiryGroupId);
+    const assigned =
+      entry.assignedUserId || entry.assignedUserName
+        ? {
+            assignedUserId: toPositiveInt(entry.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) ||
+              DEFAULT_FOLLOW_UP_USER_ID,
+            assignedUserName: entry.assignedUserName || "Waari Team",
+          }
+        : resolveAssignedUser(tour || {});
+    const nextFollowUp = normalizeFollowUpDate(entry.nextFollowUp);
+    const enquiryDate = entry.enquiryDate ? normalizeFollowUpDate(entry.enquiryDate) : nextFollowUp;
+    const adults = toPositiveInt(entry.adults, null) || 0;
+    const child = toPositiveInt(entry.child, null) || 0;
+    const paxNo = toPositiveInt(entry.paxNo, null) || Math.max(1, adults + child || 1);
+    return {
+      type: "GROUP",
+      enquiryGroupId: entry.enquiryGroupId,
+      uniqueEnqueryId: entry.uniqueEnqueryId,
+      groupName: entry.groupName || tour?.groupName || tour?.tourName || "Group Enquiry",
+      tourName: tour?.tourName || entry.groupName || "Group Tour",
+      guestName: entry.fullName || entry.guestName || "Primary Guest",
+      userName: assigned.assignedUserName,
+      assignedUserId: assigned.assignedUserId,
+      assignedUserName: assigned.assignedUserName,
+      paxNo,
+      nextFollowUp,
+      nextFollowUpTime: entry.nextFollowUpTime || "10:00 AM",
+      enquiryDate,
+      startDate: tour?.startDate || null,
+      endDate: tour?.endDate || null,
+      cityName: tour?.cityName || "",
+      status: entry.status || "ENQUIRY",
+      workflowStage: entry.workflowStage || "ENQUIRY",
+      category: tour?.category || "GROUP",
+      tourTypeName: tour?.tourTypeName || "",
+    };
+  });
+};
+
 const buildGroupFollowUpRecords = () => {
   const baseDate = startOfToday();
-  return groupFollowUpPlan.map((plan) => createGroupFollowUpRecord(plan, baseDate)).filter(Boolean);
+  const manualRecords = buildManualGroupFollowUpRecords();
+  const seededRecords = groupFollowUpPlan.map((plan) => createGroupFollowUpRecord(plan, baseDate)).filter(Boolean);
+  return [...manualRecords, ...seededRecords];
 };
 
 const buildCustomFollowUpRecords = () => {
@@ -1969,6 +2581,150 @@ const listPlanEnquiryUsersCt = ({ page = 1, perPage = 10, filters = {} } = {}) =
   );
 };
 
+const getPlanEnquiryUserDataGt = ({ planEnqId } = {}) => {
+  const record = findGroupPlanEnquiryById(planEnqId);
+  if (!record) {
+    return { data: {}, message: "Group plan enquiry not found" };
+  }
+  const data = buildGroupPlanEnquiryView(record) || {};
+  return {
+    data,
+    message: "Group plan enquiry fetched successfully",
+  };
+};
+
+const getPlanEnquiryUserDataCt = ({ planEnqId } = {}) => {
+  const record = findCustomPlanEnquiryById(planEnqId);
+  if (!record) {
+    return { data: {}, message: "Custom plan enquiry not found" };
+  }
+  const data = buildCustomPlanEnquiryView(record) || {};
+  return {
+    data,
+    message: "Custom plan enquiry fetched successfully",
+  };
+};
+
+const assignUserToPlanEnquiryGt = async (payload = {}) => {
+  const planEnqId = toPositiveInt(payload.planEnqId, null);
+  if (!planEnqId) {
+    return null;
+  }
+  const record = findGroupPlanEnquiryById(planEnqId);
+  if (!record) {
+    return null;
+  }
+  const assignedMeta = await fetchAssignableUserMeta(payload.assignTo ?? payload.assignedUserId);
+  const adults = toPositiveInt(payload.adults, null);
+  const child = toPositiveInt(payload.child, null);
+  const paxOverride = toPositiveInt(payload.noOfTravelPeople, null);
+  const totalPax = Math.max(
+    1,
+    paxOverride || (adults || 0) + (child || 0) || record.noOfTravelPeople || 1
+  );
+  const priorityInput = payload.priorityId !== undefined ? payload.priorityId : record.priorityId;
+  const priorityMeta = resolvePriorityMeta(priorityInput, payload.priorityName || record.priorityName || "");
+  const referenceMeta =
+    payload.enquiryReferId !== undefined
+      ? resolvePlanEnquiryReference({ enquiryReferId: payload.enquiryReferId }, record.enquiryReferId)
+      : { enquiryReferId: record.enquiryReferId, enquiryReferName: record.enquiryReferName };
+  const nextFollow = normalizeFollowUpDate(payload.nextFollowUp, toDate(record.nextFollowUp) || startOfToday());
+  const override = groupPlanEnquiryAssignments[planEnqId] || {};
+  groupPlanEnquiryAssignments[planEnqId] = {
+    ...override,
+    planEnqId,
+    assignedUserId: assignedMeta.userId,
+    assignedUserName: assignedMeta.userName,
+    firstName: sanitizeText(payload.fullName) || record.firstName,
+    groupName: sanitizeText(payload.groupName) || record.groupName,
+    contactNo: sanitizeText(payload.contact) || record.contactNo,
+    email: sanitizeText(payload.mail) || record.email,
+    noOfTravelPeople: totalPax,
+    adults,
+    child,
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    guestRefId: payload.guestRefId || record.guestRefId || "",
+    familyHeadNo: toPositiveInt(payload.familyHeadNo, null) || record.familyHeadNo || 1,
+    nextFollowUp: nextFollow,
+    nextFollowUpTime: payload.nextFollowUpTime || record.nextFollowUpTime || "10:00 AM",
+    notes: sanitizeText(payload.note || payload.notes) || record.notes || "",
+    updatedAt: new Date().toISOString(),
+  };
+  await persistTourFixture("groupPlanEnquiryAssignments");
+  const updatedRecord = applyGroupPlanAssignmentOverride(findGroupPlanEnquiryById(planEnqId));
+  return {
+    planEnqId,
+    assignedUserId: assignedMeta.userId,
+    assignedUserName: assignedMeta.userName,
+    nextFollowUp: updatedRecord?.nextFollowUp || nextFollow,
+    nextFollowUpTime: updatedRecord?.nextFollowUpTime || payload.nextFollowUpTime || record.nextFollowUpTime || "10:00 AM",
+    data: buildGroupPlanEnquiryView(updatedRecord || record),
+    message: "Plan enquiry assignment updated successfully",
+  };
+};
+
+const assignUserToPlanEnquiryCt = async (payload = {}) => {
+  const planEnqId = toPositiveInt(payload.planEnqId, null);
+  if (!planEnqId) {
+    return null;
+  }
+  const record = findCustomPlanEnquiryById(planEnqId);
+  if (!record) {
+    return null;
+  }
+  const assignedMeta = await fetchAssignableUserMeta(payload.assignTo ?? payload.assignedUserId);
+  const paxOverride = toPositiveInt(payload.noOfTravelPeople, null);
+  const totalPax = Math.max(1, paxOverride || record.noOfTravelPeople || 1);
+  const priorityInput = payload.priorityId !== undefined ? payload.priorityId : record.priorityId;
+  const priorityMeta = resolvePriorityMeta(priorityInput, payload.priorityName || record.priorityName || "");
+  const referenceMeta =
+    payload.enquiryReferId !== undefined
+      ? resolvePlanEnquiryReference({ enquiryReferId: payload.enquiryReferId }, record.enquiryReferId)
+      : { enquiryReferId: record.enquiryReferId, enquiryReferName: record.enquiryReferName };
+  const nextFollow = normalizeFollowUpDate(payload.nextFollowUp, toDate(record.nextFollowUp) || startOfToday());
+  const override = customPlanEnquiryAssignments[planEnqId] || {};
+  customPlanEnquiryAssignments[planEnqId] = {
+    ...override,
+    planEnqId,
+    assignedUserId: assignedMeta.userId,
+    assignedUserName: assignedMeta.userName,
+    firstName: sanitizeText(payload.fullName) || record.firstName,
+    groupName: sanitizeText(payload.groupName) || record.groupName,
+    contactNo: sanitizeText(payload.contact) || record.contactNo,
+    email: sanitizeText(payload.mail) || record.email,
+    destinationId: toPositiveInt(payload.destinationId, null) || record.destinationId || null,
+    countryId: toPositiveInt(payload.countryId, null) || record.countryId || null,
+    stateId: toPositiveInt(payload.stateId, null) || record.stateId || null,
+    noOfTravelPeople: totalPax,
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    familyHeadNo: toPositiveInt(payload.familyHeadNo, null) || record.familyHeadNo || 1,
+    nextFollowUp: nextFollow,
+    nextFollowUpTime: payload.nextFollowUpTime || record.nextFollowUpTime || "10:00 AM",
+    hotelCatId: toPositiveInt(payload.hotelCatId, null) || record.hotelCatId || null,
+    mealPlanId: toPositiveInt(payload.mealPlanId, null) || record.mealPlanId || null,
+    rooms: toPositiveInt(payload.rooms, null) || record.rooms || null,
+    notes: sanitizeText(payload.note || payload.notes) || record.notes || "",
+    updatedAt: new Date().toISOString(),
+  };
+  await persistTourFixture("customPlanEnquiryAssignments");
+  const updatedRecord = applyCustomPlanAssignmentOverride(findCustomPlanEnquiryById(planEnqId));
+  return {
+    planEnqId,
+    assignedUserId: assignedMeta.userId,
+    assignedUserName: assignedMeta.userName,
+    nextFollowUp: updatedRecord?.nextFollowUp || nextFollow,
+    nextFollowUpTime: updatedRecord?.nextFollowUpTime || payload.nextFollowUpTime || record.nextFollowUpTime || "10:00 AM",
+    data: buildCustomPlanEnquiryView(updatedRecord || record),
+    message: "Custom plan enquiry assignment updated successfully",
+  };
+};
+
 const filterGroupPaymentRecord = (record, filters = {}) => {
   if (filters.guestName && !matchesText(record.guestName, filters.guestName)) {
     return false;
@@ -2025,6 +2781,266 @@ const buildCustomPaymentSummaries = () => {
       status,
     };
   });
+};
+
+const resolveCustomPaymentSummary = (enquiryCustomId) =>
+  buildCustomPaymentSummaries().find((entry) => Number(entry.enquiryCustomId) === Number(enquiryCustomId));
+
+const resolveCustomDetailFromIds = ({ enquiryDetailCustomId, enquiryCustomId } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (id) {
+    const detail = buildCustomEnquiryDetail(id);
+    if (detail) {
+      return detail;
+    }
+  }
+  const detailId = toPositiveInt(enquiryDetailCustomId, null);
+  if (detailId) {
+    const matchedId = collectCustomEnquiryIds().find((value) => {
+      const record = buildCustomEnquiryDetail(value);
+      return record && Number(record.enquiryDetailCustomId) === detailId;
+    });
+    if (matchedId) {
+      return buildCustomEnquiryDetail(matchedId);
+    }
+  }
+  return null;
+};
+
+const getCustomPaymentOverrides = (detailId) => {
+  const id = toPositiveInt(detailId, null);
+  if (!id) {
+    return {};
+  }
+  if (!customPaymentOverrides[id]) {
+    customPaymentOverrides[id] = {};
+  }
+  return customPaymentOverrides[id];
+};
+
+const buildCustomAdvancePayments = (detail, summary) => {
+  const overrides = getCustomPaymentOverrides(detail.enquiryDetailCustomId);
+  const baseDate = toDate(summary.startDate) || new Date();
+  const entries = [];
+  const primaryPaymentId = Number(`${detail.enquiryDetailCustomId}1`);
+  entries.push({
+    customPayDetailId: primaryPaymentId,
+    enquiryDetailCustomId: detail.enquiryDetailCustomId,
+    enquiryCustomId: detail.enquiryCustomId,
+    advancePayment: summary.advancePayment,
+    status: 1,
+    paymentModeId: 1,
+    onlineTypeId: 1,
+    paymentDate: summary.startDate,
+    transactionId: `UPI${primaryPaymentId}`,
+    transactionProof: `${DOCUMENT_BASE_URL}/payments/custom-${primaryPaymentId}.pdf`,
+    receiptNo: `${summary.uniqueEnqueryId}-R1`,
+  });
+  if (summary.balance > 0) {
+    const secondaryId = Number(`${detail.enquiryDetailCustomId}2`);
+    entries.push({
+      customPayDetailId: secondaryId,
+      enquiryDetailCustomId: detail.enquiryDetailCustomId,
+      enquiryCustomId: detail.enquiryCustomId,
+      advancePayment: Math.min(summary.balance, summary.advancePayment / 2),
+      status: 0,
+      paymentModeId: 2,
+      paymentDate: formatDateOnly(addDaysToDate(baseDate, 5)),
+      bankName: "Waari Finance Bank",
+      chequeNo: `CQ${secondaryId}`,
+      receiptNo: `${summary.uniqueEnqueryId}-R2`,
+    });
+  }
+  return entries.map((entry, index) => {
+    const override = overrides[entry.customPayDetailId] || {};
+    const paymentModeMeta = resolvePaymentModeMeta(override.paymentModeId ?? entry.paymentModeId);
+    const onlineMeta = resolveOnlineTypeMeta(override.onlineTypeId ?? entry.onlineTypeId);
+    const cardMeta = resolveCardTypeMeta(override.cardTypeId ?? entry.cardTypeId);
+    return {
+      ...entry,
+      ...override,
+      status: override.status ?? entry.status,
+      paymentModeId: paymentModeMeta.paymentModeId,
+      paymentModeName: override.paymentModeName || paymentModeMeta.paymentModeName,
+      paymentMode: override.paymentModeName || paymentModeMeta.paymentModeName,
+      onlineTypeId: onlineMeta.onlineTypeId,
+      onlineTypeName: override.onlineTypeName || onlineMeta.onlineTypeName,
+      cardTypeId: cardMeta.cardTypeId,
+      cardTypeName: override.cardTypeName || cardMeta.cardTypeName,
+      paymentDate: override.paymentDate || entry.paymentDate,
+      bankName: override.bankName || entry.bankName || "Waari Bank",
+      chequeNo: override.chequeNo || entry.chequeNo || "",
+      transactionId: override.transactionId || entry.transactionId || `TXN${entry.customPayDetailId}`,
+      transactionProof:
+        override.transactionProof || entry.transactionProof || `${DOCUMENT_BASE_URL}/payments/custom-${entry.customPayDetailId}.pdf`,
+    };
+  });
+};
+
+const buildCustomBillingData = (detail, summary) => {
+  const advancePayments = buildCustomAdvancePayments(detail, summary);
+  const paidAmount = advancePayments
+    .filter((payment) => Number(payment.status) === 1)
+    .reduce((total, payment) => total + toNumber(payment.advancePayment, 0), 0);
+  const balance = Math.max(0, summary.grandTotal - paidAmount);
+  return {
+    enquiryCustomId: detail.enquiryCustomId,
+    enquiryDetailCustomId: detail.enquiryDetailCustomId,
+    billingName: detail.billingName || detail.groupName || detail.contactName || detail.fullName || "Travel Guest",
+    address: detail.address || `${detail.stateName || detail.destinationName || "Pune"}, ${detail.countryName || "India"}`,
+    phoneNumber: detail.contact || detail.phoneNo || COMPANY_PROFILE.phone,
+    gstIn: detail.gstIn || COMPANY_PROFILE.gstIn,
+    panNumber: detail.panNumber || COMPANY_PROFILE.panNo,
+    grandTotal: summary.grandTotal,
+    balance,
+    isPaymentDone: balance <= 0,
+    advancePayments,
+  };
+};
+
+const getCustomBillView = ({ enquiryDetailCustomId, enquiryCustomId } = {}) => {
+  const detail = resolveCustomDetailFromIds({ enquiryDetailCustomId, enquiryCustomId });
+  if (!detail) {
+    return { data: {}, message: "Customized enquiry not found" };
+  }
+  const summary = resolveCustomPaymentSummary(detail.enquiryCustomId) || {
+    enquiryCustomId: detail.enquiryCustomId,
+    grandTotal: 0,
+    advancePayment: 0,
+    balance: 0,
+    uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${detail.enquiryCustomId}`,
+  };
+  const data = buildCustomBillingData(detail, summary);
+  return {
+    enquiryCustomId: detail.enquiryCustomId,
+    enquiryDetailCustomId: detail.enquiryDetailCustomId,
+    data,
+    message: "Customized bill fetched successfully",
+  };
+};
+
+const listCustomNewPayments = ({ enquiryDetailCustomId, enquiryCustomId } = {}) => {
+  const detail = resolveCustomDetailFromIds({ enquiryDetailCustomId, enquiryCustomId });
+  if (!detail) {
+    return { data: [], message: "Customized enquiry not found" };
+  }
+  const summary = resolveCustomPaymentSummary(detail.enquiryCustomId) || {
+    enquiryCustomId: detail.enquiryCustomId,
+    grandTotal: 0,
+    advancePayment: 0,
+    balance: 0,
+    uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${detail.enquiryCustomId}`,
+  };
+  const billing = buildCustomBillingData(detail, summary);
+  const pending = billing.advancePayments.filter((payment) => Number(payment.status) === 0);
+  return {
+    enquiryCustomId: detail.enquiryCustomId,
+    enquiryDetailCustomId: detail.enquiryDetailCustomId,
+    data: pending,
+    total: pending.length,
+    message: pending.length ? "Pending customized payments fetched successfully" : "No pending payments found",
+  };
+};
+
+const resolveCustomPaymentEntry = (customPayDetailId) => {
+  const paymentId = toPositiveInt(customPayDetailId, null);
+  if (!paymentId) {
+    return null;
+  }
+  const contexts = collectCustomEnquiryIds()
+    .map((id) => {
+      const detail = buildCustomEnquiryDetail(id);
+      if (!detail) {
+        return null;
+      }
+      const summary = resolveCustomPaymentSummary(id) || {
+        enquiryCustomId: id,
+        grandTotal: 0,
+        advancePayment: 0,
+        balance: 0,
+        uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${id}`,
+      };
+      const billing = buildCustomBillingData(detail, summary);
+      return { detail, summary, billing };
+    })
+    .filter(Boolean);
+  for (const context of contexts) {
+    const payment = context.billing.advancePayments.find(
+      (entry) => Number(entry.customPayDetailId) === paymentId
+    );
+    if (payment) {
+      return { ...context, payment };
+    }
+  }
+  return null;
+};
+
+const getCustomReceiptDetails = ({ customPayDetailId } = {}) => {
+  const context = resolveCustomPaymentEntry(customPayDetailId);
+  if (!context) {
+    return { message: "Receipt not found" };
+  }
+  const { detail, payment } = context;
+  return {
+    customPayDetailId: payment.customPayDetailId,
+    enquiryCustomId: detail.enquiryCustomId,
+    enquiryDetailCustomId: detail.enquiryDetailCustomId,
+    receiptNo: payment.receiptNo,
+    paymentDate: payment.paymentDate,
+    paymentMode: payment.paymentModeName,
+    transactionMode: payment.onlineTypeName || "",
+    transactionId: payment.transactionId || "",
+    bankName: payment.bankName || "",
+    chequeNo: payment.chequeNo || "",
+    billingName: context.billing.billingName,
+    address: context.billing.address,
+    phoneNo: context.billing.phoneNumber,
+    gstIn: context.billing.gstIn,
+    gstin: context.billing.gstIn,
+    panNo: context.billing.panNumber,
+    destination: detail.destinationName || detail.countryName || "Customized Tour",
+    groupName: detail.groupName || detail.tourName || `Custom Tour ${detail.enquiryCustomId}`,
+    days: detail.days,
+    nights: detail.nights,
+    adults: detail.adults,
+    child: detail.child,
+    advancePayment: payment.advancePayment,
+    message: "Customized receipt fetched successfully",
+  };
+};
+
+const updateCustomPaymentStatus = async ({ enquiryDetailCustomId, customPayDetailId } = {}) => {
+  const detailId = toPositiveInt(enquiryDetailCustomId, null);
+  const paymentId = toPositiveInt(customPayDetailId, null);
+  if (!detailId || !paymentId) {
+    const error = new Error("enquiryDetailCustomId and customPayDetailId are required");
+    error.status = 400;
+    throw error;
+  }
+  const context = resolveCustomPaymentEntry(paymentId);
+  if (!context || Number(context.detail.enquiryDetailCustomId) !== detailId) {
+    const error = new Error("Payment detail not found");
+    error.status = 404;
+    throw error;
+  }
+  const overrides = getCustomPaymentOverrides(detailId);
+  overrides[paymentId] = {
+    ...overrides[paymentId],
+    status: 1,
+    paymentDate: formatDateOnly(new Date()),
+    paymentModeId: overrides[paymentId]?.paymentModeId || context.payment.paymentModeId || 1,
+    transactionId: overrides[paymentId]?.transactionId || context.payment.transactionId || `TXN${paymentId}`,
+    transactionProof:
+      overrides[paymentId]?.transactionProof ||
+      context.payment.transactionProof ||
+      `${DOCUMENT_BASE_URL}/payments/custom-${paymentId}.pdf`,
+  };
+  await persistTourFixture("customPaymentOverrides");
+  return {
+    enquiryDetailCustomId: detailId,
+    customPayDetailId: paymentId,
+    message: "Customized payment status updated successfully",
+  };
 };
 
 const filterCustomPaymentRecord = (record, filters = {}) => {
@@ -2136,8 +3152,18 @@ const listCustomTours = ({ page = 1, perPage = 10, filters = {}, category = "CUS
   const pageNumber = toPositiveInt(page, 1) || 1;
   const perPageNumber = toPositiveInt(perPage, 10) || 10;
   const normalizedCategory = category ? normalizeCategory(category) : "";
-  const filtered = filterCustomTours(customTours, filters).filter((tour) => {
-    if (normalizedCategory && normalizeCategory(tour.category) !== normalizedCategory) {
+  const enquiryIds = collectCustomEnquiryIds();
+  let records = enquiryIds.map((id) => buildCustomEnquiryDetail(id)).filter(Boolean);
+  if (records.length) {
+    const toursWithoutId = customTours.filter((tour) => !toPositiveInt(tour.enquiryCustomId, null));
+    if (toursWithoutId.length) {
+      records = [...records, ...toursWithoutId];
+    }
+  } else {
+    records = customTours.slice();
+  }
+  const filtered = filterCustomTours(records, filters).filter((tour) => {
+    if (normalizedCategory && normalizeCategory(tour.category || "CUSTOMIZED") !== normalizedCategory) {
       return false;
     }
     return true;
@@ -2542,6 +3568,373 @@ const listCustomBookingRecords = ({
 const listAllCustomBookingRecords = (options = {}) =>
   listCustomBookingRecords({ ...options, scope: "all" });
 
+const buildMonthlyCountArray = (records = [], fallbackBase = 4) => {
+  const counts = Array(12).fill(0);
+  if (Array.isArray(records) && records.length) {
+    records.forEach((record, index) => {
+      const date = toDate(record.travelDate) || toDate(record.startDate) || toDate(record.bookingDate);
+      const monthIndex = date ? date.getMonth() : index % 12;
+      counts[monthIndex] += 1;
+    });
+    if (counts.some((value) => value > 0)) {
+      return counts;
+    }
+  }
+  return counts.map((_, index) => fallbackBase + (index % 5));
+};
+
+const buildEnquiryGraphFromCounts = (counts = []) => {
+  const totals = counts.map((value) => Math.max(0, value));
+  const confirmed = totals.map((value, index) => Math.min(value, Math.round(value * 0.68) + (index % 2)));
+  const lost = totals.map((value, index) => {
+    const tentative = Math.round(value * 0.18) + (index % 3);
+    return Math.min(value - confirmed[index], Math.max(0, tentative));
+  });
+  return {
+    totals,
+    confirmed,
+    lost,
+  };
+};
+
+const buildEnquirySummaryRows = (totals, confirmed, lost) => {
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const previousMonth = (currentMonth + 11) % 12;
+  const currentTotal = totals[currentMonth] || 0;
+  const confirmedCurrent = confirmed[currentMonth] || 0;
+  const lostCurrent = lost[currentMonth] || 0;
+  const ongoing = Math.max(0, currentTotal - confirmedCurrent - lostCurrent);
+  const conversionRate = currentTotal > 0 ? Math.min(100, Math.round((confirmedCurrent / currentTotal) * 100)) : 0;
+  return [
+    {
+      previousMonthTotal: totals[previousMonth] || 0,
+      currentMonthTotal: currentTotal,
+      ongoing,
+      confirmed: confirmedCurrent,
+      lost: lostCurrent,
+      conversionRate,
+    },
+  ];
+};
+
+const buildMonthlyTargetGraphSeries = (counts, baseTarget = 50, baseStep = 4) => {
+  let runningTarget = baseTarget;
+  let runningAchieve = Math.round(baseTarget * 0.7);
+  const targetEntries = [];
+  const achieveEntries = [];
+  counts.forEach((count, index) => {
+    runningTarget += Math.max(baseStep, count + index);
+    targetEntries.push(Math.round(runningTarget));
+    const achievedStep = Math.max(baseStep - 1, Math.round(count * 0.6));
+    runningAchieve = Math.min(runningTarget, runningAchieve + achievedStep);
+    achieveEntries.push(Math.round(runningAchieve));
+  });
+  return {
+    targetSeries: [0, ...targetEntries],
+    achieveSeries: [0, ...achieveEntries],
+  };
+};
+
+const buildTargetSummaryMetrics = (counts, baseTarget, suffix) => {
+  const today = new Date();
+  const monthIndex = today.getMonth();
+  const quarterStart = Math.floor(monthIndex / 3) * 3;
+  const monthCount = counts[monthIndex] || 0;
+  const quarterCount = counts.slice(quarterStart, quarterStart + 3).reduce((sum, value) => sum + value, 0);
+  const yearCount = counts.reduce((sum, value) => sum + value, 0);
+  const monthlyTarget = Math.max(baseTarget, monthCount + Math.round(baseTarget * 0.5));
+  const quarterlyTarget = Math.max(baseTarget * 3, quarterCount + baseTarget);
+  const yearlyTarget = Math.max(baseTarget * 12, yearCount + baseTarget * 2);
+  const result = {
+    monthlyTarget: Math.round(monthlyTarget),
+    quarterlyTarget: Math.round(quarterlyTarget),
+    yearlyTarget: Math.round(yearlyTarget),
+  };
+  result[`achieveMonthlyTarget${suffix}`] = Math.round(
+    Math.min(monthlyTarget, Math.max(monthCount, monthlyTarget * 0.75))
+  );
+  result[`achieveQuarterTarget${suffix}`] = Math.round(
+    Math.min(quarterlyTarget, Math.max(quarterCount, quarterlyTarget * 0.7))
+  );
+  result[`achieveYearTarget${suffix}`] = Math.round(
+    Math.min(yearlyTarget, Math.max(yearCount, yearlyTarget * 0.65))
+  );
+  result[`remainingMonthlyTarget${suffix}`] = Math.max(
+    0,
+    result.monthlyTarget - result[`achieveMonthlyTarget${suffix}`]
+  );
+  result[`remainingQuarterTarget${suffix}`] = Math.max(
+    0,
+    result.quarterlyTarget - result[`achieveQuarterTarget${suffix}`]
+  );
+  result[`remainingYearTarget${suffix}`] = Math.max(
+    0,
+    result.yearlyTarget - result[`achieveYearTarget${suffix}`]
+  );
+  return result;
+};
+
+const buildBookingMetricSnapshot = () => {
+  const groupRecords = buildGroupBookingRecords();
+  const customRecords = buildCustomBookingRecords();
+  const totalRecords = groupRecords.length + customRecords.length;
+  if (!totalRecords) {
+    return { ...BILLING_DEFAULT_METRICS };
+  }
+  const loyaltyBooking = Math.max(3, Math.round(groupRecords.length * 0.4));
+  const welcomeBooking = Math.max(2, Math.round(customRecords.length * 0.35));
+  const referralRate = Math.min(95, Math.max(12, Math.round((loyaltyBooking / totalRecords) * 100)));
+  const currentBookingCount = totalRecords;
+  const nextRankCount = Math.max(0, Math.round(Math.max(4, currentBookingCount * 0.12)));
+  const topTenRankCount = Math.max(0, Math.round(Math.max(6, currentBookingCount * 0.2)));
+  const topFiveRankCount = Math.max(0, Math.round(Math.max(3, currentBookingCount * 0.15)));
+  return {
+    loyaltyBooking,
+    welcomeBooking,
+    referralRate,
+    currentBookingCount,
+    nextRankCount,
+    topTenRankCount,
+    topFiveRankCount,
+  };
+};
+
+const isDomesticDestination = (name = "") => {
+  const normalizedName = normalize(name);
+  if (!normalizedName) {
+    return true;
+  }
+  const domesticKeywords = [
+    "india",
+    "goa",
+    "kerala",
+    "kashmir",
+    "ladakh",
+    "sikkim",
+    "jaipur",
+    "rajasthan",
+    "pune",
+    "delhi",
+    "agra",
+    "mumbai",
+    "hyderabad",
+    "kolkata",
+    "assam",
+    "gujarat",
+    "manali",
+    "shimla",
+  ];
+  return domesticKeywords.some((keyword) => normalizedName.includes(keyword));
+};
+
+const buildSalesPartnerStats = () => {
+  const todayStr = formatDateOnly(startOfToday());
+  const statsMap = new Map();
+  const registerPartner = (userName) => {
+    const key = userName || "Waari Team";
+    if (!statsMap.has(key)) {
+      statsMap.set(key, {
+        userName: key,
+        domesticCountGt: 0,
+        internationalCountGt: 0,
+        total_count_gt: 0,
+        domesticCountCt: 0,
+        internationalCountCt: 0,
+        total_count_ct: 0,
+        total_count_overall: 0,
+        todaysBooking: 0,
+      });
+    }
+    return statsMap.get(key);
+  };
+  buildGroupBookingRecords().forEach((record) => {
+    const partner = registerPartner(record.assignedUserName);
+    const international = !isDomesticDestination(record.destinationName || record.tourName);
+    if (international) {
+      partner.internationalCountGt += 1;
+    } else {
+      partner.domesticCountGt += 1;
+    }
+    partner.total_count_gt += 1;
+    partner.total_count_overall += 1;
+    if (record.bookingDate === todayStr) {
+      partner.todaysBooking += 1;
+    }
+  });
+  buildCustomBookingRecords().forEach((record) => {
+    const partner = registerPartner(record.assignedUserName);
+    const international = !isDomesticDestination(record.destinationName || record.tourName);
+    if (international) {
+      partner.internationalCountCt += 1;
+    } else {
+      partner.domesticCountCt += 1;
+    }
+    partner.total_count_ct += 1;
+    partner.total_count_overall += 1;
+    if (record.bookingDate === todayStr) {
+      partner.todaysBooking += 1;
+    }
+  });
+  const stats = Array.from(statsMap.values()).filter((entry) => entry.total_count_overall > 0);
+  if (!stats.length) {
+    return cloneValue(BILLING_DEFAULT_TOP_SALES, []);
+  }
+  stats.sort((a, b) => b.total_count_overall - a.total_count_overall);
+  stats[0].isFirst = true;
+  return stats.slice(0, 5);
+};
+
+const buildBirthdayGuestRecords = () => {
+  const baseDate = startOfToday();
+  const directory = buildFamilyHeadDirectory();
+  if (!directory.length) {
+    return DEFAULT_BIRTHDAY_SEEDS.map((seed) => ({
+      familyHeadName: seed.familyHeadName,
+      contact: seed.contact,
+      dob: formatDateOnly(addDaysToDate(baseDate, seed.dobOffsetDays || -11000)),
+      marriageDate: formatDateOnly(addDaysToDate(baseDate, seed.marriageOffsetDays || -3200)),
+    }));
+  }
+  return directory.slice(0, 60).map((head, index) => {
+    const name = `${head.firstName} ${head.lastName}`.trim();
+    const tour = resolveGroupTourRecord(head.enquiryGroupId);
+    const contact = head.contact || resolveContact(tour || {});
+    const dobDays = -((25 + (index % 15)) * 365 + index * 3);
+    const marriageDays = -((5 + (index % 9)) * 365 + index);
+    return {
+      familyHeadName: name,
+      contact,
+      dob: formatDateOnly(addDaysToDate(baseDate, dobDays)),
+      marriageDate: formatDateOnly(addDaysToDate(baseDate, marriageDays)),
+    };
+  });
+};
+
+const listBillingBirthdayGuests = ({ page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const records = buildBirthdayGuestRecords();
+  const pagination = paginate(records, pageNumber, perPageNumber);
+  return {
+    message: pagination.total ? "Birthday list fetched successfully" : "No birthday data available",
+    page: pagination.page,
+    perPage: pagination.perPage,
+    total: pagination.total,
+    lastPage: pagination.lastPage,
+    guestsWithDOB: pagination.data,
+    data: pagination.data,
+  };
+};
+
+const getLoyaltyBookingMetric = () => {
+  const metrics = buildBookingMetricSnapshot();
+  return {
+    loyaltyBooking: metrics.loyaltyBooking,
+    message: "Loyalty booking count fetched successfully",
+  };
+};
+
+const getWelcomeBookingMetric = () => {
+  const metrics = buildBookingMetricSnapshot();
+  return {
+    welcomeBooking: metrics.welcomeBooking,
+    message: "Welcome booking count fetched successfully",
+  };
+};
+
+const getReferralRateMetric = () => {
+  const metrics = buildBookingMetricSnapshot();
+  return {
+    referralRate: metrics.referralRate,
+    message: "Referral rate fetched successfully",
+  };
+};
+
+const getMoreBookingCounts = () => {
+  const metrics = buildBookingMetricSnapshot();
+  return {
+    nextRankCount: metrics.nextRankCount,
+    topTenRankCount: metrics.topTenRankCount,
+    topFiveRankCount: metrics.topFiveRankCount,
+    currentBookingCount: metrics.currentBookingCount,
+    message: "Booking progress counts fetched successfully",
+  };
+};
+
+const listTopSalesPartners = () => {
+  const topSales = buildSalesPartnerStats();
+  return {
+    topSales,
+    generatedOn: formatDateOnly(startOfToday()),
+    message: topSales.length ? "Top sales partners fetched successfully" : "No sales data available",
+  };
+};
+
+const getMonthlyTargetGraphGt = () => {
+  const counts = buildMonthlyCountArray(buildGroupBookingRecords(), 8);
+  const graph = buildMonthlyTargetGraphSeries(counts, 60, 5);
+  return {
+    gtGraphArray: graph.targetSeries,
+    gtAchieveArray: graph.achieveSeries,
+  };
+};
+
+const getGroupTargetSummary = () => {
+  const counts = buildMonthlyCountArray(buildGroupBookingRecords(), 8);
+  return buildTargetSummaryMetrics(counts, 60, "Gt");
+};
+
+const getGroupEnquiryGraphStats = () => {
+  const counts = buildMonthlyCountArray(buildGroupBookingRecords(), 8);
+  const graph = buildEnquiryGraphFromCounts(counts);
+  return {
+    totalEnquiriesGt: graph.totals,
+    confirmedEnquiriesGt: graph.confirmed,
+    lostEnquiriesGt: graph.lost,
+  };
+};
+
+const getGroupEnquiryTable = () => {
+  const counts = buildMonthlyCountArray(buildGroupBookingRecords(), 8);
+  const graph = buildEnquiryGraphFromCounts(counts);
+  return {
+    enquiriesGT: buildEnquirySummaryRows(graph.totals, graph.confirmed, graph.lost),
+  };
+};
+
+const getMonthlyTargetGraphCt = () => {
+  const counts = buildMonthlyCountArray(buildCustomBookingRecords(), 6);
+  const graph = buildMonthlyTargetGraphSeries(counts, 45, 4);
+  return {
+    ctTargetArray: graph.targetSeries,
+    ctAchieveArray: graph.achieveSeries,
+  };
+};
+
+const getCustomTargetSummary = () => {
+  const counts = buildMonthlyCountArray(buildCustomBookingRecords(), 6);
+  return buildTargetSummaryMetrics(counts, 45, "Ct");
+};
+
+const getCustomEnquiryGraphStats = () => {
+  const counts = buildMonthlyCountArray(buildCustomBookingRecords(), 6);
+  const graph = buildEnquiryGraphFromCounts(counts);
+  return {
+    totalEnquiriesCt: graph.totals,
+    confirmedEnquiriesCt: graph.confirmed,
+    lostEnquiriesCt: graph.lost,
+  };
+};
+
+const getCustomEnquiryTable = () => {
+  const counts = buildMonthlyCountArray(buildCustomBookingRecords(), 6);
+  const graph = buildEnquiryGraphFromCounts(counts);
+  return {
+    enquiriesCt: buildEnquirySummaryRows(graph.totals, graph.confirmed, graph.lost),
+  };
+};
+
 const splitNameParts = (value) => {
   const text = (value || "").toString().trim();
   if (!text) {
@@ -2716,6 +4109,887 @@ const listCustomGuestDetails = ({
   return buildListResponse(records, pageNumber, perPageNumber, filters, message);
 };
 
+const LOYALTY_CARD_OPTIONS = [
+  { cardId: 1, cardName: "Silver", minPoints: 0 },
+  { cardId: 2, cardName: "Gold", minPoints: 250 },
+  { cardId: 3, cardName: "Platinum", minPoints: 450 },
+  { cardId: 4, cardName: "Diamond", minPoints: 650 },
+];
+
+const MANUAL_GUEST_ID_OFFSET = 700000;
+
+const getManualGuestEntries = () => cloneValue(manualGuestDirectory, []);
+
+const resolveNamePrefixById = (preFixId) => {
+  const id = toPositiveInt(preFixId, null);
+  if (!id) {
+    return { preFixId: null, preFixName: "" };
+  }
+  const dataset = namePrefixes.length ? namePrefixes : DEFAULT_NAME_PREFIXES;
+  const match = dataset.find((entry) => Number(entry.preFixId) === id);
+  if (match) {
+    return { preFixId: match.preFixId, preFixName: match.preFixName };
+  }
+  const fallback = dataset[(id - 1) % dataset.length];
+  return { preFixId: id, preFixName: fallback?.preFixName || (id % 2 === 0 ? "Ms." : "Mr.") };
+};
+
+const resolveManualGuestCard = (cardId, cardName) => {
+  const id = toPositiveInt(cardId, null);
+  if (id) {
+    const match = LOYALTY_CARD_OPTIONS.find((option) => Number(option.cardId) === id);
+    if (match) {
+      return match;
+    }
+  }
+  if (cardName) {
+    const match = LOYALTY_CARD_OPTIONS.find((option) => normalize(option.cardName) === normalize(cardName));
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+};
+
+const nextManualGuestId = () =>
+  manualGuestDirectory.reduce(
+    (max, record) => Math.max(max, Number(record && record.guestId) || 0),
+    MANUAL_GUEST_ID_OFFSET
+  ) + 1;
+
+const DEFAULT_GUEST_DIRECTORY_SEEDS = [
+  {
+    guestId: 7010,
+    firstName: "Anita",
+    lastName: "Iyer",
+    guestName: "Anita Iyer",
+    contact: "9823001100",
+    assignedUserId: DEFAULT_FOLLOW_UP_USER_ID,
+  },
+  {
+    guestId: 7011,
+    firstName: "Rahul",
+    lastName: "Kulkarni",
+    guestName: "Rahul Kulkarni",
+    contact: "9890700700",
+    assignedUserId: 9002,
+  },
+  {
+    guestId: 7012,
+    firstName: "Sneha",
+    lastName: "Patel",
+    guestName: "Sneha Patel",
+    contact: "9860006600",
+    assignedUserId: 9003,
+  },
+  {
+    guestId: 7013,
+    firstName: "Vikram",
+    lastName: "Desai",
+    guestName: "Vikram Desai",
+    contact: "9811122234",
+    assignedUserId: 9004,
+  },
+];
+
+const selectLoyaltyCardByPoints = (points) => {
+  let matched = LOYALTY_CARD_OPTIONS[0];
+  LOYALTY_CARD_OPTIONS.forEach((card) => {
+    if (points >= card.minPoints) {
+      matched = card;
+    }
+  });
+  return matched;
+};
+
+const buildGuestLoyaltyDirectory = () => {
+  const combined = [...getManualGuestEntries(), ...buildGroupGuestDirectory(), ...buildCustomGuestDirectory()];
+  const source = combined.length ? combined : DEFAULT_GUEST_DIRECTORY_SEEDS;
+  const list = cloneValue(source, []);
+  const today = startOfToday();
+  return list.map((record, index) => {
+    const guestId = toPositiveInt(record.guestId, index + 1) || index + 1;
+    const fullNameSource = record.guestName || `${record.firstName || "Guest"} ${record.lastName || guestId}`;
+    const [firstNameFallback, lastNameFallback] = splitNameParts(fullNameSource);
+    const firstName = record.firstName || firstNameFallback;
+    const lastName = record.lastName || lastNameFallback;
+    const guestName = record.guestName || `${firstName} ${lastName}`.trim();
+    const contact =
+      record.contact ||
+      record.phone ||
+      record.mobile ||
+      `98${String(guestId).padStart(8, "0")}`;
+    const enquiryCount = Math.max(1, record.enquiryCount || record.paxPerHead || ((index % 7) + 1));
+    const computedPoints = Math.max(
+      50,
+      Math.min(
+        1200,
+        enquiryCount * 40 +
+          (index % 5) * 15 +
+          (toPositiveInt(record.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) % 7) * 10
+      )
+    );
+    const loyaltyPoints = toPositiveInt(record.loyaltyPoints, null) || computedPoints;
+    const card = resolveManualGuestCard(record.cardId, record.cardName) || selectLoyaltyCardByPoints(loyaltyPoints);
+    const userId = toPositiveInt(record.userId, guestId) || guestId;
+    const statusOverride = (loyaltyStatusOverrides && loyaltyStatusOverrides[userId]) || {};
+    const basePrintedStatus =
+      record.printedStatus !== undefined ? Boolean(record.printedStatus) : index % 3 === 0;
+    const baseDeliveryStatus =
+      record.deliveryStatus !== undefined ? Boolean(record.deliveryStatus) : index % 4 === 0;
+    const printedStatus =
+      statusOverride.printedStatus !== undefined ? Boolean(statusOverride.printedStatus) : basePrintedStatus;
+    const deliveryStatus =
+      statusOverride.deliveryStatus !== undefined ? Boolean(statusOverride.deliveryStatus) : baseDeliveryStatus;
+    return {
+      ...record,
+      guestId,
+      userId,
+      firstName,
+      lastName: lastName ? lastName.trim() : "",
+      guestName,
+      userName: guestName,
+      contact,
+      enquiryCount,
+      loyaltyPoints,
+      cardId: card.cardId,
+      cardName: card.cardName,
+      loyaltyCard: card.cardName,
+      referralId: record.referralId || `WR-${String(guestId).padStart(5, "0")}`,
+      printedStatus,
+      printedStatusName: printedStatus ? "Printed" : "Pending",
+      deliveryStatus,
+      deliveryStatusName: deliveryStatus ? "Delivered" : "Awaiting Dispatch",
+      date: record.date || formatDateOnly(addDaysToDate(today, -(index % 45) - 2)),
+      assignedUserId: toPositiveInt(record.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID,
+    };
+  });
+};
+
+const parseGuestIdentifier = (value) => {
+  const text = (value || "").toString().trim();
+  if (!text) {
+    return { guestId: null, referralId: null };
+  }
+  const direct = toPositiveInt(text, null);
+  if (direct) {
+    return { guestId: direct, referralId: text.toUpperCase() || null };
+  }
+  const digitsOnly = text.replace(/[^0-9]/g, "");
+  const guestId = toPositiveInt(digitsOnly, null);
+  return { guestId, referralId: text.toUpperCase() || null };
+};
+
+const resolveGuestDirectoryRecord = (guestIdentifier) => {
+  const directory = buildGuestLoyaltyDirectory();
+  if (!directory.length) {
+    return {
+      ...DEFAULT_GUEST_DIRECTORY_SEEDS[0],
+      guestId: DEFAULT_GUEST_DIRECTORY_SEEDS[0]?.guestId || 1,
+      referralId: DEFAULT_GUEST_DIRECTORY_SEEDS[0]?.referralId || "WR-10001",
+    };
+  }
+  const { guestId, referralId } = parseGuestIdentifier(guestIdentifier);
+  const exact =
+    directory.find((entry) => guestId && Number(entry.guestId) === Number(guestId)) ||
+    directory.find(
+      (entry) =>
+        referralId &&
+        entry.referralId &&
+        normalize(entry.referralId) === normalize(referralId)
+    );
+  if (exact) {
+    return exact;
+  }
+  const index = guestId ? guestId % directory.length : 0;
+  return directory[index] || directory[0];
+};
+
+const buildGuestProfileSummary = (record = {}) => {
+  const prefixData = resolveNamePrefixById(record.preFixId || null);
+  const prefix = record.preFixName || prefixData.preFixName || "";
+  const guestName = record.guestName || `${record.firstName || "Guest"} ${record.lastName || ""}`.trim();
+  return {
+    guestId: toPositiveInt(record.guestId, null) || nextManualGuestId(),
+    referralId: record.referralId || `WR-${String(record.guestId || 1).padStart(5, "0")}`,
+    guestName,
+    billingName: prefix ? `${prefix} ${guestName}`.trim() : guestName,
+    phoneNo: record.contact || record.phone || record.mobile || "",
+    address: record.address || record.cityName || record.city || "Waari HQ, Pune",
+    adharNo: record.adharNo || "",
+    adharCard: record.adharCard || record.adhar || "",
+    panNo: record.panNo || "",
+    pan: record.pan || "",
+    passportNo: record.passportNo || "",
+    passport: record.passport || "",
+    loyaltyCard: record.cardName || record.loyaltyCard || "Silver",
+    loyaltyPoint: toPositiveInt(record.loyaltyPoints, null) || 0,
+    assignedUserId: toPositiveInt(record.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID,
+  };
+};
+
+const filterRecordsForGuest = (records = [], guestRecord = {}) => {
+  if (!records.length) {
+    return records;
+  }
+  const guestSeed = toPositiveInt(guestRecord.guestId, null) || 1;
+  const filtered = records.filter((record, index) => {
+    const key = toPositiveInt(record.historyId, null) || index + 1;
+    return (key + guestSeed) % 2 === 0;
+  });
+  return filtered.length ? filtered : records;
+};
+
+const buildGroupGuestHistoryRecords = (guestRecord = {}) => {
+  const records = groupTours.map((tour, index) => {
+    const destination = findDestination(tour.destinationId || null);
+    const country = findCountry(tour.countryId, destination?.destinationId);
+    const state = findState(tour.stateId);
+    const startDate = formatDateString(toDate(tour.startDate) || addDaysToDate(new Date(), index * 3));
+    const endDate = formatDateString(
+      toDate(tour.endDate) ||
+        addDaysToDate(toDate(tour.startDate) || new Date(), Math.max(3, toPositiveInt(tour.days, null) || 4))
+    );
+    const adults = Math.max(1, toPositiveInt(tour.adults, null) || resolveGroupPaxCount(tour));
+    return {
+      historyId: Number(`${tour.groupTourId || 0}${index + 1}`) || index + 1,
+      tourName: tour.tourName || destination?.destinationName || "Group Tour",
+      countryName: country?.countryName || "India",
+      stateName: state?.stateName || "Maharashtra",
+      startDate,
+      endDate,
+      adults,
+    };
+  });
+  if (!records.length) {
+    const today = new Date();
+    const fallback = DEFAULT_GUEST_DIRECTORY_SEEDS.map((seed, index) => ({
+      historyId: 9000 + index + 1,
+      tourName: `Signature Journey ${index + 1}`,
+      countryName: "India",
+      stateName: index % 2 === 0 ? "Maharashtra" : "Gujarat",
+      startDate: formatDateString(addDaysToDate(today, -(index + 2) * 7)),
+      endDate: formatDateString(addDaysToDate(today, -(index + 2) * 7 + 5)),
+      adults: seed.paxPerHead || 2,
+    }));
+    return filterRecordsForGuest(fallback, guestRecord);
+  }
+  return filterRecordsForGuest(records, guestRecord);
+};
+
+const buildCustomGuestHistoryRecords = (guestRecord = {}) => {
+  const records = collectCustomEnquiryIds()
+    .map((id, index) => {
+      const detail = buildCustomEnquiryDetail(id);
+      if (!detail) {
+        return null;
+      }
+      const startDate = detail.startDate || formatDateString(addDaysToDate(new Date(), index * 4));
+      const endDate =
+        detail.endDate ||
+        formatDateString(
+          addDaysToDate(toDate(detail.startDate) || new Date(), Math.max(3, toPositiveInt(detail.days, null) || 4))
+        );
+      const adults = Math.max(1, toPositiveInt(detail.adults, null) || 2);
+      return {
+        historyId: Number(`${id}${index + 1}`),
+        tourName: detail.groupName || detail.tourName || `Custom Journey ${id}`,
+        countryName: detail.countryName || "India",
+        stateName: detail.stateName || "Maharashtra",
+        startDate,
+        endDate,
+        adults,
+      };
+    })
+    .filter(Boolean);
+  if (!records.length) {
+    const today = new Date();
+    const fallback = DEFAULT_GUEST_DIRECTORY_SEEDS.map((seed, index) => ({
+      historyId: 9500 + index + 1,
+      tourName: `Curated Escape ${index + 1}`,
+      countryName: index % 2 === 0 ? "India" : "Thailand",
+      stateName: index % 2 === 0 ? "Goa" : "Bangkok",
+      startDate: formatDateString(addDaysToDate(today, index * 6)),
+      endDate: formatDateString(addDaysToDate(today, index * 6 + 5)),
+      adults: seed.paxPerHead || 2,
+    }));
+    return filterRecordsForGuest(fallback, guestRecord);
+  }
+  return filterRecordsForGuest(records, guestRecord);
+};
+
+const LOYALTY_HISTORY_PLAN_NAMES = [
+  "Referral Bonus",
+  "Anniversary Reward",
+  "Milestone Upgrade",
+  "Festive Offer",
+  "Birthday Treat",
+];
+
+const buildGuestLoyaltyHistoryRecords = (guestRecord = {}) => {
+  const sources = [...buildGroupGuestHistoryRecords(guestRecord), ...buildCustomGuestHistoryRecords(guestRecord)];
+  const base = sources.length
+    ? sources
+    : DEFAULT_GUEST_DIRECTORY_SEEDS.map((seed, index) => ({
+        historyId: 9800 + index + 1,
+        tourName: `Journey ${index + 1}`,
+      }));
+  const iterations = Math.max(6, Math.min(12, base.length));
+  const entries = [];
+  const basePoints = toPositiveInt(guestRecord.loyaltyPoints, null) || 180;
+  for (let index = 0; index < iterations; index += 1) {
+    const reference = base[index % base.length] || {};
+    const planName = LOYALTY_HISTORY_PLAN_NAMES[index % LOYALTY_HISTORY_PLAN_NAMES.length];
+    const points = Math.max(30, Math.round(basePoints / 6) + index * 8);
+    const isDebit = index % 5 === 0;
+    entries.push({
+      historyId: Number(`${reference.historyId || index + 1}${index + 3}`) || index + 1,
+      tour: reference.tourName || `Journey ${index + 1}`,
+      planName,
+      loyaltyPoint: points,
+      description: `${planName} for ${reference.tourName || "recent travel"}`,
+      isType: isDebit ? 1 : 2,
+    });
+  }
+  return entries;
+};
+
+const matchesGuestFilters = (record, filters = {}) => {
+  const guestNameFilter = filters.guestName || filters.name;
+  if (guestNameFilter && !matchesText(record.guestName, guestNameFilter)) {
+    return false;
+  }
+  if (filters.contact) {
+    const contactQuery = filters.contact.toString().trim();
+    if (contactQuery && !String(record.contact || "").includes(contactQuery)) {
+      return false;
+    }
+  }
+  const cardFilter = filters.cardName || filters.cardId;
+  if (cardFilter !== undefined && cardFilter !== null && cardFilter !== "") {
+    const cardIdFilter = toPositiveInt(cardFilter, null);
+    if (cardIdFilter) {
+      if (Number(record.cardId) !== Number(cardIdFilter)) {
+        return false;
+      }
+    } else if (!matchesText(record.cardName, cardFilter)) {
+      return false;
+    }
+  }
+  const referralFilter = filters.referralId || filters.refferalId;
+  if (referralFilter && !matchesText(record.referralId, referralFilter)) {
+    return false;
+  }
+  return true;
+};
+
+const buildScopedGuestListing = ({
+  scope = "mine",
+  page = 1,
+  perPage = 10,
+  filters = {},
+  currentUserId = DEFAULT_FOLLOW_UP_USER_ID,
+  message = "",
+}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const scopedUserId = toPositiveInt(currentUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID;
+  const records = buildGuestLoyaltyDirectory()
+    .filter((record) => matchesConfirmScope(record, scope, scopedUserId))
+    .filter((record) => matchesGuestFilters(record, filters));
+  return buildListResponse(records, pageNumber, perPageNumber, filters, message);
+};
+
+const listGuestsDirectory = (options = {}) =>
+  buildScopedGuestListing({ ...options, scope: "mine", message: "Guest list fetched successfully" });
+
+const listAllGuestsDirectory = (options = {}) =>
+  buildScopedGuestListing({ ...options, scope: "all", message: "All guest list fetched successfully" });
+
+const searchAllGuestsDirectory = (options = {}) =>
+  buildScopedGuestListing({ ...options, scope: "all", message: "Guest search fetched successfully" });
+
+const searchGuestEmails = ({ firstName, guestName, search, email, limit = 10 } = {}) => {
+  const query = sanitizeText(firstName || guestName || search || email || "");
+  const numericQuery = query.replace(/[^0-9]/g, "");
+  const limitNumber = Math.max(1, Math.min(50, toPositiveInt(limit, 10) || 10));
+  if (!query && !numericQuery) {
+    return [];
+  }
+  const records = buildGuestLoyaltyDirectory();
+  if (!records.length) {
+    return [];
+  }
+  const matches = [];
+  for (let index = 0; index < records.length && matches.length < limitNumber; index += 1) {
+    const record = records[index];
+    const nameMatch =
+      (query && matchesText(record.guestName, query)) ||
+      (query && matchesText(record.firstName, query)) ||
+      (query && matchesText(record.lastName, query)) ||
+      (query && matchesText(record.userName, query)) ||
+      (query && matchesText(record.email || record.mailId || "", query));
+    const contactValue = (record.contact || record.phone || "").toString();
+    const hasContactMatch = numericQuery ? contactValue.replace(/[^0-9]/g, "").includes(numericQuery) : false;
+    if (nameMatch || hasContactMatch) {
+      matches.push({
+        value: record.guestId || record.userId || index + 1,
+        label: record.guestName || record.userName || record.firstName || `Guest ${index + 1}`,
+        email: record.email || record.mailId || "",
+        contact: record.contact || record.phone || "",
+      });
+    }
+  }
+  return matches;
+};
+
+const listLoyaltyGuests = (options = {}) =>
+  buildScopedGuestListing({ ...options, scope: "mine", message: "Loyalty guests fetched successfully" });
+
+const listAllLoyaltyGuests = (options = {}) =>
+  buildScopedGuestListing({ ...options, scope: "all", message: "All loyalty guests fetched successfully" });
+
+const updateLoyaltyStatus = async ({ userId, statusType, status = true } = {}) => {
+  const id = toPositiveInt(userId, null);
+  if (!id) {
+    const error = new Error("userId is required");
+    error.status = 400;
+    throw error;
+  }
+  const typeQuery = normalize(statusType);
+  const type = typeQuery === "delivery" ? "delivery" : typeQuery === "print" ? "print" : null;
+  if (!type) {
+    const error = new Error("Invalid status type");
+    error.status = 400;
+    throw error;
+  }
+  const directory = buildGuestLoyaltyDirectory();
+  const record = directory.find((entry) => Number(entry.userId) === id);
+  if (!record) {
+    const error = new Error("Guest not found");
+    error.status = 404;
+    throw error;
+  }
+  const normalizedStatus = (() => {
+    if (status === undefined) {
+      return true;
+    }
+    if (typeof status === "string") {
+      const normalized = normalize(status);
+      if (["false", "0", "no", "off"].includes(normalized)) {
+        return false;
+      }
+      if (["true", "1", "yes", "on"].includes(normalized)) {
+        return true;
+      }
+    }
+    return Boolean(status);
+  })();
+  const overrides = loyaltyStatusOverrides[id] || {};
+  if (type === "print") {
+    overrides.printedStatus = normalizedStatus;
+  } else {
+    overrides.deliveryStatus = normalizedStatus;
+  }
+  loyaltyStatusOverrides[id] = overrides;
+  await persistTourFixture("loyaltyStatusOverrides");
+  const printedStatus = overrides.printedStatus !== undefined ? overrides.printedStatus : record.printedStatus;
+  const deliveryStatus = overrides.deliveryStatus !== undefined ? overrides.deliveryStatus : record.deliveryStatus;
+  return {
+    message: type === "print" ? "Print status updated successfully" : "Delivery status updated successfully",
+    userId: id,
+    printedStatus,
+    printedStatusName: printedStatus ? "Printed" : "Pending",
+    deliveryStatus,
+    deliveryStatusName: deliveryStatus ? "Delivered" : "Awaiting Dispatch",
+  };
+};
+
+const createGroupTourEnquiry = async (payload = {}) => {
+  const groupTourId = toPositiveInt(payload.groupTourId, null);
+  const tour = resolveGroupTourRecord(groupTourId);
+  const adults = toPositiveInt(payload.adults, 0) || 0;
+  const child = toPositiveInt(payload.child, 0) || 0;
+  const paxNo = Math.max(1, adults + child || 1);
+  if (paxNo > 6) {
+    const error = new Error("Pax size cannot exceed 6 people");
+    error.status = 400;
+    throw error;
+  }
+  const priorityId = toPositiveInt(payload.priorityId, null) || fallbackPriorityId();
+  const enquiryReferId = toPositiveInt(payload.enquiryReferId, null) || fallbackEnquiryReferenceId();
+  const guestRefId = payload.guestRefId || fallbackGuestReferenceId();
+  const nextFollowUp = normalizeFollowUpDate(payload.nextFollowUp);
+  const enquiryDate = payload.enquiryDate ? normalizeFollowUpDate(payload.enquiryDate) : formatDateOnly(startOfToday());
+  const assignedSource =
+    payload.assignedUserId || payload.assignedUserName ? payload : tour || { assignedUserId: DEFAULT_FOLLOW_UP_USER_ID };
+  const assigned = resolveAssignedUser(assignedSource);
+  const contact = (payload.contact || "").toString().trim();
+  const email = (payload.mail || payload.email || "").toString().trim();
+  const fullName = (payload.fullName || payload.contactName || "Primary Guest").toString().trim();
+  const groupName = (payload.groupName || tour?.groupName || tour?.tourName || fullName || "Group Enquiry").toString().trim();
+  const nextFollowUpTime = (payload.nextFollowUpTime || "10:00 AM").toString().trim() || "10:00 AM";
+  const enquiryGroupId = nextManualGroupEnquiryId();
+  const entry = {
+    enquiryGroupId,
+    uniqueEnqueryId: `GT-ENQ-${enquiryGroupId}`,
+    groupTourId: tour?.groupTourId || groupTourId || enquiryGroupId,
+    groupName,
+    fullName,
+    contact,
+    email,
+    adults,
+    child,
+    paxNo,
+    priorityId,
+    enquiryReferId,
+    guestRefId,
+    familyHeadNo: toPositiveInt(payload.familyHeadNo, 1) || 1,
+    nextFollowUp,
+    nextFollowUpTime,
+    enquiryDate,
+    assignedUserId: assigned.assignedUserId,
+    assignedUserName: assigned.assignedUserName,
+    status: "ENQUIRY",
+    workflowStage: "ENQUIRY",
+    source: payload.source || "dashboard",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  groupTourEnquiries.push(entry);
+  await persistTourFixture("groupTourEnquiries");
+  return {
+    message: "Group tour enquiry added successfully",
+    enquiryGroupId: entry.enquiryGroupId,
+    uniqueEnqueryId: entry.uniqueEnqueryId,
+    data: entry,
+  };
+};
+
+const updateGroupTourEnquiry = async (payload = {}) => {
+  const enquiryGroupId = toPositiveInt(payload.enquiryGroupId, null);
+  if (!enquiryGroupId) {
+    const error = new Error("enquiryGroupId is required");
+    error.status = 400;
+    throw error;
+  }
+  const index = groupTourEnquiries.findIndex((entry) => Number(entry.enquiryGroupId) === enquiryGroupId);
+  if (index === -1) {
+    return null;
+  }
+  const existing = groupTourEnquiries[index];
+  const adultsInput = payload.adults !== undefined ? toPositiveInt(payload.adults, 0) : null;
+  const childInput = payload.child !== undefined ? toPositiveInt(payload.child, 0) : null;
+  const adults = adultsInput !== null ? adultsInput : toPositiveInt(existing.adults, 0) || 0;
+  const child = childInput !== null ? childInput : toPositiveInt(existing.child, 0) || 0;
+  const paxNo = Math.max(1, adults + child || existing.paxNo || 1);
+  if (paxNo > 6) {
+    const error = new Error("Pax size cannot exceed 6 people");
+    error.status = 400;
+    throw error;
+  }
+  const priorityMeta =
+    payload.priorityId !== undefined
+      ? resolvePriorityMeta(payload.priorityId, existing.priorityName || "")
+      : resolvePriorityMeta(existing.priorityId, existing.priorityName || "");
+  const referenceMeta =
+    payload.enquiryReferId !== undefined
+      ? resolvePlanEnquiryReference({ enquiryReferId: payload.enquiryReferId }, existing.enquiryReferId)
+      : resolvePlanEnquiryReference({ enquiryReferId: existing.enquiryReferId }, existing.enquiryReferId);
+  const nextGroupTourId =
+    payload.groupTourId !== undefined
+      ? toPositiveInt(payload.groupTourId, existing.groupTourId) || existing.groupTourId
+      : existing.groupTourId;
+  const emailInput = payload.mail !== undefined ? payload.mail : payload.email;
+  const updatedRecord = {
+    ...existing,
+    groupTourId: nextGroupTourId,
+    groupName: payload.groupName !== undefined ? selectSanitizedValue(payload.groupName, existing.groupName) : existing.groupName,
+    fullName: payload.fullName !== undefined ? selectSanitizedValue(payload.fullName, existing.fullName) : existing.fullName,
+    contact: payload.contact !== undefined ? selectSanitizedValue(payload.contact, existing.contact) : existing.contact,
+    email: emailInput !== undefined ? selectSanitizedValue(emailInput, existing.email) : existing.email,
+    adults,
+    child,
+    paxNo,
+    priorityId: priorityMeta.priorityId,
+    priorityName: priorityMeta.priorityName,
+    enquiryReferId: referenceMeta.enquiryReferId,
+    enquiryReferName: referenceMeta.enquiryReferName,
+    guestRefId:
+      payload.guestRefId !== undefined ? selectSanitizedValue(payload.guestRefId, existing.guestRefId || "") : existing.guestRefId,
+    familyHeadNo: toPositiveInt(payload.familyHeadNo, null) || existing.familyHeadNo || 1,
+    updatedAt: new Date().toISOString(),
+  };
+  groupTourEnquiries[index] = updatedRecord;
+  await persistTourFixture("groupTourEnquiries");
+  return {
+    message: "Group tour enquiry updated successfully",
+    enquiryGroupId: updatedRecord.enquiryGroupId,
+    uniqueEnqueryId: updatedRecord.uniqueEnqueryId,
+    data: updatedRecord,
+  };
+};
+
+const resolveReportYear = (value) => {
+  const currentYear = new Date().getFullYear();
+  const parsed = toPositiveInt(value, null);
+  if (parsed) {
+    return Math.max(2018, Math.min(currentYear + 1, parsed));
+  }
+  if (typeof value === "string") {
+    const digits = value.replace(/[^0-9]/g, "");
+    const numeric = toPositiveInt(digits, null);
+    if (numeric) {
+      return Math.max(2018, Math.min(currentYear + 1, numeric));
+    }
+  }
+  return currentYear;
+};
+
+const resolveReportMonth = (value) => {
+  const fallback = new Date().getMonth() + 1;
+  const parsed = toPositiveInt(value, null);
+  if (parsed && parsed >= 1 && parsed <= 12) {
+    return parsed;
+  }
+  if (typeof value === "string") {
+    const digits = value.replace(/[^0-9]/g, "");
+    const numeric = toPositiveInt(digits, null);
+    if (numeric && numeric >= 1 && numeric <= 12) {
+      return numeric;
+    }
+  }
+  return fallback;
+};
+
+const buildCommissionReportEntries = ({ year, month } = {}) => {
+  const targetYear = resolveReportYear(year);
+  const targetMonth = resolveReportMonth(month);
+  const dataset = buildGuestLoyaltyDirectory();
+  if (!dataset.length) {
+    return [];
+  }
+  const baseFactor = (targetYear % 7) + targetMonth;
+  return dataset.map((record, index) => {
+    const enquiryCounter = index + 1;
+    const enquiryId = `ENQ-${targetYear}${String(targetMonth).padStart(2, "0")}-${String(enquiryCounter).padStart(4, "0")}`;
+    const enquiryMultiplier = Math.max(1, record.enquiryCount || 1);
+    const inrCost = 32000 + ((index + baseFactor) % 12) * 3600 + enquiryMultiplier * 1400;
+    const forexFactor = 1.1 + ((index + baseFactor) % 5) * 0.03;
+    const totalCost = Math.round(inrCost * forexFactor);
+    const commissionRate = Number((4 + ((index + baseFactor) % 5)).toFixed(1));
+    const commission = Math.round((totalCost * commissionRate) / 100);
+    return {
+      enquiryId,
+      guestName: record.guestName,
+      inrCost,
+      totalCost,
+      commission,
+      commissionRate,
+    };
+  });
+};
+
+const getCommissionReport = ({ page = 1, perPage = 10, year, month } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const targetYear = resolveReportYear(year);
+  const targetMonth = resolveReportMonth(month);
+  const entries = buildCommissionReportEntries({ year: targetYear, month: targetMonth });
+  return buildListResponse(entries, pageNumber, perPageNumber, { year: targetYear, month: targetMonth }, "Commission report fetched successfully");
+};
+
+const buildWaariSelectReportEntries = ({ year } = {}) => {
+  const targetYear = resolveReportYear(year);
+  const dataset = buildGuestLoyaltyDirectory();
+  if (!dataset.length) {
+    return [];
+  }
+  const bonusSeed = (targetYear % 5) + 3;
+  return dataset.map((record, index) => {
+    const selfBooking = (index % 4) + 1;
+    const selfTourSale = selfBooking * 45000 + (record.loyaltyPoints % 7) * 600;
+    const selfBookingPoints = selfBooking * 30 + bonusSeed * 4;
+    const referredGuest = Math.max(1, (record.enquiryCount || 1) - 1 + (index % 2));
+    const referredGuestSale = referredGuest * 42000 + (index % 3) * 3800;
+    const pointsEarnedTroughReferral = referredGuest * 22 + (record.loyaltyPoints % 45);
+    const totalPointsEarned = Math.round(selfBookingPoints + pointsEarnedTroughReferral + (record.loyaltyPoints || 0) * 0.25);
+    const pointsReedem = Math.round(Math.min(totalPointsEarned * 0.4, record.loyaltyPoints || totalPointsEarned));
+    return {
+      userName: record.userName,
+      referralId: record.referralId,
+      selfBooking,
+      selfTourSale,
+      selfBookingPoints,
+      referredGuest,
+      referredGuestSale,
+      pointsEarnedTroughReferral,
+      totalPointsEarned,
+      pointsReedem,
+    };
+  });
+};
+
+const listWaariSelectReport = ({ page = 1, perPage = 10, year } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const targetYear = resolveReportYear(year);
+  const entries = buildWaariSelectReportEntries({ year: targetYear });
+  return buildListResponse(entries, pageNumber, perPageNumber, { year: targetYear }, "Waari select report fetched successfully");
+};
+
+const downloadWaariSelectReport = ({ year } = {}) => {
+  const targetYear = resolveReportYear(year);
+  return buildWaariSelectReportEntries({ year: targetYear });
+};
+
+const addGuestUser = async (payload = {}) => {
+  const firstName = (payload.firstName || "").toString().trim();
+  const lastName = (payload.lastName || "").toString().trim();
+  const contact = (payload.phone || payload.contact || "").toString().trim();
+  if (!firstName || !lastName || !contact) {
+    const error = new Error("First name, last name, and phone are required");
+    error.status = 400;
+    throw error;
+  }
+  const guestId = nextManualGuestId();
+  const prefix = resolveNamePrefixById(payload.preFixId || payload.namePreFix);
+  const assignedUserId =
+    toPositiveInt(payload.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID;
+  const card = resolveManualGuestCard(payload.cardId, payload.cardName);
+  const record = {
+    guestId,
+    preFixId: prefix.preFixId,
+    preFixName: prefix.preFixName,
+    firstName,
+    lastName,
+    guestName: `${firstName} ${lastName}`.trim(),
+    email: (payload.email || "").toString().trim(),
+    contact,
+    dob: payload.dob || "",
+    dom: payload.dom || "",
+    adharNo: (payload.adharNo || "").toString().trim(),
+    adhar: (payload.adhar || "").toString().trim(),
+    pan: (payload.pan || "").toString().trim(),
+    panNo: (payload.panNo || "").toString().trim(),
+    passport: (payload.passport || "").toString().trim(),
+    passportNo: (payload.passportNo || "").toString().trim(),
+    cardId: (card && card.cardId) || toPositiveInt(payload.cardId, null) || null,
+    cardName: (card && card.cardName) || payload.cardName || "",
+    loyaltyPoints: toPositiveInt(payload.loyaltyPoint, null) || null,
+    enquiryCount: Math.max(1, toPositiveInt(payload.enquiryCount, 1) || 1),
+    referralId: payload.referralId || payload.refferalId || `WR-${String(guestId).padStart(5, "0")}`,
+    assignedUserId,
+    source: "manual",
+    createdAt: new Date().toISOString(),
+  };
+  manualGuestDirectory.push(record);
+  await persistTourFixture("manualGuestDirectory");
+  return {
+    message: "Guest added successfully",
+    guestId,
+    data: record,
+  };
+};
+
+const getGuestTravelDetails = ({ guestId, tab = 1, page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const tabNumber = Number(tab) === 2 ? 2 : 1;
+  const guestRecord = resolveGuestDirectoryRecord(guestId);
+  const profile = buildGuestProfileSummary(guestRecord);
+  const history =
+    tabNumber === 2 ? buildCustomGuestHistoryRecords(guestRecord) : buildGroupGuestHistoryRecords(guestRecord);
+  const message = tabNumber === 2
+    ? "Custom guest travel history fetched successfully"
+    : "Group guest travel history fetched successfully";
+  const response = buildListResponse(history, pageNumber, perPageNumber, { guestId: guestId || profile.referralId, tab: tabNumber }, message);
+  return {
+    ...response,
+    guestId: profile.guestId,
+    referralId: profile.referralId,
+    billingName: profile.billingName,
+    phoneNo: profile.phoneNo,
+    address: profile.address,
+    adharNo: profile.adharNo,
+    adharCard: profile.adharCard,
+    panNo: profile.panNo,
+    pan: profile.pan,
+    passportNo: profile.passportNo,
+    passport: profile.passport,
+    loyaltyCard: profile.loyaltyCard,
+    loyaltyPoint: profile.loyaltyPoint,
+  };
+};
+
+const getGuestLoyaltyHistory = ({ guestId, page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const guestRecord = resolveGuestDirectoryRecord(guestId);
+  const profile = buildGuestProfileSummary(guestRecord);
+  const history = buildGuestLoyaltyHistoryRecords(guestRecord);
+  const response = buildListResponse(history, pageNumber, perPageNumber, { guestId: guestId || profile.referralId }, "Loyalty history fetched successfully");
+  return {
+    ...response,
+    guestId: profile.guestId,
+    referralId: profile.referralId,
+    billingName: profile.billingName,
+    phoneNo: profile.phoneNo,
+    loyaltyCard: profile.loyaltyCard,
+    loyaltyPoint: profile.loyaltyPoint,
+  };
+};
+
+const buildRefereeLeaderboard = ({
+  scope = "mine",
+  currentUserId = DEFAULT_FOLLOW_UP_USER_ID,
+  metric = "enquiryCount",
+} = {}) => {
+  const scopedUserId = toPositiveInt(currentUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID;
+  const dataset = buildGuestLoyaltyDirectory().filter((record) => matchesConfirmScope(record, scope, scopedUserId));
+  return dataset
+    .slice()
+    .sort((a, b) => (b[metric] || 0) - (a[metric] || 0))
+    .slice(0, 5)
+    .map((record) => ({
+      userId: record.userId,
+      firstName: record.firstName,
+      lastName: record.lastName,
+      guestName: record.guestName,
+      enquiryCount: record.enquiryCount,
+      loyaltyPoints: record.loyaltyPoints,
+      contact: record.contact,
+    }));
+};
+
+const getRefereeGuestCounts = (options = {}) => ({
+  message: "Top referee guests fetched successfully",
+  generatedOn: formatDateOnly(startOfToday()),
+  scope: "mine",
+  refereeGuests: buildRefereeLeaderboard({ ...options, scope: "mine", metric: "enquiryCount" }),
+});
+
+const getAllRefereeGuestCounts = (options = {}) => ({
+  message: "All referee guests fetched successfully",
+  generatedOn: formatDateOnly(startOfToday()),
+  scope: "all",
+  refereeGuests: buildRefereeLeaderboard({ ...options, scope: "all", metric: "enquiryCount" }),
+});
+
+const getRefereeGuestSales = (options = {}) => ({
+  message: "Top referee guest sales fetched successfully",
+  generatedOn: formatDateOnly(startOfToday()),
+  scope: "mine",
+  refereeGuestsSales: buildRefereeLeaderboard({ ...options, scope: "mine", metric: "loyaltyPoints" }),
+});
+
+const getAllRefereeGuestSales = (options = {}) => ({
+  message: "All referee guest sales fetched successfully",
+  generatedOn: formatDateOnly(startOfToday()),
+  scope: "all",
+  refereeGuestsSales: buildRefereeLeaderboard({ ...options, scope: "all", metric: "loyaltyPoints" }),
+});
+
 const DEFAULT_CALL_STATUS_OPTIONS = [
   { callStatusId: 1, callStatusName: "Interested" },
   { callStatusId: 2, callStatusName: "Follow-up Scheduled" },
@@ -2723,10 +4997,31 @@ const DEFAULT_CALL_STATUS_OPTIONS = [
   { callStatusId: 4, callStatusName: "Converted" },
   { callStatusId: 5, callStatusName: "Not Interested" },
 ];
+const resolveCallStatusMeta = (callStatusId) => {
+  const id = toPositiveInt(callStatusId, null);
+  if (!id) {
+    return DEFAULT_CALL_STATUS_OPTIONS[0];
+  }
+  return DEFAULT_CALL_STATUS_OPTIONS.find((option) => Number(option.callStatusId) === id) || DEFAULT_CALL_STATUS_OPTIONS[0];
+};
 const DEFAULT_ROOM_SHARING_OPTIONS = [
   { roomShareId: 1, roomShareName: "Twin Sharing", tourPrice: 22000, offerPrice: 20500 },
   { roomShareId: 2, roomShareName: "Triple Sharing", tourPrice: 21000, offerPrice: 19500 },
   { roomShareId: 3, roomShareName: "Single Sharing", tourPrice: 26000, offerPrice: 25000 },
+];
+const DEFAULT_NAME_PREFIXES = [
+  { preFixId: 1, preFixName: "Mr." },
+  { preFixId: 2, preFixName: "Mrs." },
+  { preFixId: 3, preFixName: "Ms." },
+  { preFixId: 4, preFixName: "Dr." },
+  { preFixId: 5, preFixName: "Prof." },
+];
+const DEFAULT_HOTEL_CATEGORY_OPTIONS = [
+  { hotelCatId: 1, hotelCatName: "Budget" },
+  { hotelCatId: 2, hotelCatName: "Standard" },
+  { hotelCatId: 3, hotelCatName: "Deluxe" },
+  { hotelCatId: 4, hotelCatName: "Premium" },
+  { hotelCatId: 5, hotelCatName: "Luxury" },
 ];
 const DEFAULT_TRAVEL_MODE_VEHICLES = [
   { vehicleId: 1, vehicleName: "Luxury AC Coach", departureTypeId: 1 },
@@ -2750,6 +5045,40 @@ const CARD_TYPE_OPTIONS = [
   { cardTypeId: 2, cardTypeName: "Credit Card" },
 ];
 const DOCUMENT_BASE_URL = "https://files.waari.travel/documents";
+const COMPANY_PROFILE = {
+  companyName: "Musmade Hospitality Pvt. Ltd.",
+  address: "Shop no: 7, LaCasita Complex, Near TJSB Bank, Sector - 32A, Ravet, Pune - 412101",
+  phone: "9767807070",
+  gstIn: "27AAPCM4986P1Z9",
+  panNo: "AAPCM4986P",
+};
+
+const resolvePaymentModeMeta = (modeId) => {
+  const id = toPositiveInt(modeId, null);
+  const fallback = PAYMENT_MODE_OPTIONS[0];
+  if (!id) {
+    return fallback;
+  }
+  return PAYMENT_MODE_OPTIONS.find((option) => Number(option.paymentModeId) === id) || fallback;
+};
+
+const resolveOnlineTypeMeta = (typeId) => {
+  const id = toPositiveInt(typeId, null);
+  const fallback = ONLINE_TYPE_OPTIONS[0];
+  if (!id) {
+    return fallback;
+  }
+  return ONLINE_TYPE_OPTIONS.find((option) => Number(option.onlineTypeId) === id) || fallback;
+};
+
+const resolveCardTypeMeta = (typeId) => {
+  const id = toPositiveInt(typeId, null);
+  const fallback = CARD_TYPE_OPTIONS[0];
+  if (!id) {
+    return fallback;
+  }
+  return CARD_TYPE_OPTIONS.find((option) => Number(option.cardTypeId) === id) || fallback;
+};
 
 const DEFAULT_CANCELLATION_TEMPLATES = [
   {
@@ -2854,16 +5183,11 @@ const buildGroupEnquiryDetail = (enquiryGroupId) => {
 };
 
 const resolveNamePrefixByIndex = (index = 0) => {
-  if (namePrefixes.length) {
-    const entry = namePrefixes[index % namePrefixes.length] || {};
-    return {
-      preFixId: entry.preFixId || index + 1,
-      preFixName: entry.preFixName || (index % 2 === 0 ? "Mr." : "Ms."),
-    };
-  }
+  const dataset = namePrefixes.length ? namePrefixes : DEFAULT_NAME_PREFIXES;
+  const entry = dataset[index % dataset.length] || {};
   return {
-    preFixId: index + 1,
-    preFixName: index % 2 === 0 ? "Mr." : "Ms.",
+    preFixId: entry.preFixId || index + 1,
+    preFixName: entry.preFixName || (index % 2 === 0 ? "Mr." : "Ms."),
   };
 };
 
@@ -2874,36 +5198,71 @@ const computeFamilyHeadPaxShare = (tour, familyCount, index) => {
   return Math.max(1, baseShare + (index < remainder ? 1 : 0));
 };
 
-const createFamilyHeadRecord = (tour, index, familyCount) => {
+const createFamilyHeadRecord = (tour, index, familyCount, override = {}) => {
   if (!tour || !tour.groupTourId) {
     return null;
   }
-  const prefix = resolveNamePrefixByIndex(index);
+  const overrideEntry = override && typeof override === "object" ? override : {};
   const fallbackName = `${tour.groupName || tour.tourName || "Family"} ${index + 1}`;
-  const [firstName, lastName] = splitNameParts(
-    (tour.familyHeads && tour.familyHeads[index]?.familyHeadName) || fallbackName
+  const fallbackPrefix = resolveNamePrefixByIndex(index);
+  const prefixSource = resolveNamePrefixById(
+    overrideEntry.preFixId ?? overrideEntry.namePreFix ?? overrideEntry.preFix
   );
-  const destination = destinations.find((item) => Number(item.destinationId) === Number(tour.destinationId));
-  const paxPerHead = computeFamilyHeadPaxShare(tour, familyCount, index);
-  const familyHeadGtId = generateFamilyHeadId(tour, index);
-  const guestId = Number(`${tour.groupTourId}${index + 1}`);
-  const addressParts = [tour.cityName, destination ? destination.destinationName : ""].filter(Boolean);
-  const assignedUser = resolveAssignedUser(tour);
+  const prefix = {
+    preFixId: prefixSource.preFixId || fallbackPrefix.preFixId,
+    preFixName: overrideEntry.preFixName || prefixSource.preFixName || fallbackPrefix.preFixName,
+  };
+  const manualName = (
+    overrideEntry.familyHeadName ||
+    `${overrideEntry.firstName || ""} ${overrideEntry.lastName || ""}`
+  ).trim();
+  const [fallbackFirst, fallbackLast] = splitNameParts(fallbackName);
+  const [manualFirst, manualLast] = splitNameParts(manualName || fallbackName);
+  const safeFirstName = (overrideEntry.firstName || manualFirst || fallbackFirst || "Guest").toString().trim();
+  const lastNameCandidate =
+    overrideEntry.lastName !== undefined
+      ? overrideEntry.lastName.toString().trim()
+      : (manualName ? manualLast : fallbackLast).toString().trim();
+  const safeLastName = lastNameCandidate || "";
+  const destinationId = toPositiveInt(overrideEntry.destinationId, tour.destinationId);
+  const destination = destinations.find((item) => Number(item.destinationId) === Number(destinationId));
+  const paxPerHead = Math.max(
+    1,
+    toPositiveInt(overrideEntry.paxPerHead, null) || computeFamilyHeadPaxShare(tour, familyCount, index)
+  );
+  const familyHeadGtId =
+    toPositiveInt(overrideEntry.familyHeadGtId, null) || generateFamilyHeadId(tour, index);
+  const guestId =
+    toPositiveInt(overrideEntry.guestId, null) || Number(`${tour.groupTourId || 0}${index + 1}`);
+  const addressParts = [
+    overrideEntry.address,
+    overrideEntry.cityName,
+    overrideEntry.stateName,
+    overrideEntry.countryName,
+    tour.cityName,
+    destination ? destination.destinationName : "",
+  ].filter(Boolean);
+  const assignedUser = resolveAssignedUser({ ...tour, ...overrideEntry });
+  const contact = overrideEntry.contact || resolveContact({ ...overrideEntry, ...tour });
+  const emailLocal = (safeFirstName || "guest").toLowerCase();
+  const emailSuffix = (safeLastName || "family").toLowerCase();
+  const generatedEmail = `${emailLocal}.${emailSuffix}@waari.travel`;
+  const email = (overrideEntry.email || tour.email || generatedEmail).trim();
   return {
     familyHeadGtId,
     enquiryGroupId: tour.groupTourId,
     preFixId: prefix.preFixId,
     preFixName: prefix.preFixName,
-    firstName,
-    lastName: lastName.trim(),
+    firstName: safeFirstName,
+    lastName: safeLastName,
     guestId,
     paxPerHead,
-    destinationId: destination ? destination.destinationId : tour.destinationId || null,
+    destinationId: destination ? destination.destinationId : destinationId || null,
     destinationName: destination ? destination.destinationName : "",
     loyaltyPoints: 50 * (index + 1),
     address: addressParts.join(", ") || "Waari HQ, Pune",
-    contact: resolveContact(tour),
-    email: tour.email || `${firstName.toLowerCase()}@waari.travel`,
+    contact,
+    email,
     assignedUserId: assignedUser.assignedUserId,
     assignedUserName: assignedUser.assignedUserName,
   };
@@ -2913,6 +5272,18 @@ const buildFamilyHeadDirectory = () => {
   const records = [];
   groupTours.forEach((tour) => {
     if (!tour || !tour.groupTourId) {
+      return;
+    }
+    const overrides = Array.isArray(groupFamilyHeadOverrides[tour.groupTourId])
+      ? groupFamilyHeadOverrides[tour.groupTourId]
+      : [];
+    if (overrides.length) {
+      overrides.forEach((override, index) => {
+        const record = createFamilyHeadRecord(tour, index, overrides.length, override);
+        if (record) {
+          records.push(record);
+        }
+      });
       return;
     }
     const familyCount = Math.max(
@@ -2927,6 +5298,282 @@ const buildFamilyHeadDirectory = () => {
     }
   });
   return records;
+};
+
+const sanitizeFamilyHeadEntries = (entries = []) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  return entries
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const firstName = (entry.firstName || "").toString().trim();
+      const lastName = (entry.lastName || "").toString().trim();
+      if (!firstName && !lastName) {
+        return null;
+      }
+      const prefixData = resolveNamePrefixById(entry.preFixId ?? entry.namePreFix ?? entry.preFix);
+      return {
+        preFixId: prefixData.preFixId,
+        preFixName: entry.preFixName || prefixData.preFixName,
+        firstName: firstName || (lastName ? "Guest" : ""),
+        lastName,
+        paxPerHead: toPositiveInt(entry.paxPerHead, null),
+        guestId: toPositiveInt(entry.guestId, null),
+      };
+    })
+    .filter(Boolean);
+};
+
+const resolveCustomTotalPax = (detail = {}) => {
+  const adults = toPositiveInt(detail.adults, null) || 0;
+  const child = toPositiveInt(detail.child, null) || 0;
+  const paxOverride = toPositiveInt(detail.paxNo, null);
+  return Math.max(1, paxOverride || adults + child || 1);
+};
+
+const computeCustomFamilyHeadShare = (detail, familyCount, index) => {
+  const total = resolveCustomTotalPax(detail);
+  const baseShare = Math.floor(total / Math.max(1, familyCount));
+  const remainder = total % Math.max(1, familyCount);
+  return Math.max(1, baseShare + (index < remainder ? 1 : 0));
+};
+
+const createCustomFamilyHeadRecord = (detail, index, familyCount, override = {}) => {
+  if (!detail) {
+    return null;
+  }
+  const fallbackPrefix = resolveNamePrefixByIndex(index);
+  const prefixSource = resolveNamePrefixById(
+    override.preFixId ?? detail.preFixId ?? fallbackPrefix.preFixId
+  );
+  const prefixName = override.preFixName || prefixSource.preFixName || fallbackPrefix.preFixName;
+  const manualName = `${override.firstName || ""} ${override.lastName || ""}`.trim();
+  const baseName = manualName || detail.fullName || detail.contactName || detail.groupName || `Custom Family ${index + 1}`;
+  const [firstNameFallback, lastNameFallback] = splitNameParts(baseName);
+  const firstName = (override.firstName || firstNameFallback || "Guest").trim();
+  const lastName = (override.lastName || lastNameFallback || "").trim();
+  const paxPerHead =
+    toPositiveInt(override.paxPerHead, null) ||
+    computeCustomFamilyHeadShare(detail, Math.max(1, familyCount), index);
+  const enquiryDetailCustomId =
+    toPositiveInt(override.enquiryDetailCustomId, null) ||
+    Number(`${detail.enquiryDetailCustomId || detail.enquiryCustomId}${index + 1}`);
+  const guestId = toPositiveInt(override.guestId, null) || Number(`${detail.enquiryCustomId}${index + 1}`);
+  return {
+    enquiryCustomId: detail.enquiryCustomId,
+    enquiryDetailCustomId,
+    familyHeadCtId: enquiryDetailCustomId,
+    preFixId: prefixSource.preFixId,
+    preFixName: prefixName,
+    firstName,
+    lastName,
+    paxPerHead,
+    guestId,
+    status: override.status !== undefined ? Number(Boolean(override.status)) : undefined,
+  };
+};
+
+const buildCustomFamilyHeadRecords = (enquiryCustomId) => {
+  const detail = buildCustomEnquiryDetail(enquiryCustomId);
+  if (!detail) {
+    return [];
+  }
+  const override = customEnquiryDetails[detail.enquiryCustomId] || {};
+  const manualEntries = Array.isArray(override.familyHead)
+    ? sanitizeFamilyHeadEntries(override.familyHead)
+    : [];
+  if (manualEntries.length) {
+    return manualEntries
+      .map((entry, index) => createCustomFamilyHeadRecord(detail, index, manualEntries.length, entry))
+      .filter(Boolean);
+  }
+  const familyCount = Math.max(1, toPositiveInt(detail.familyHeadNo, null) || 1);
+  const records = [];
+  for (let index = 0; index < familyCount; index += 1) {
+    const record = createCustomFamilyHeadRecord(detail, index, familyCount);
+    if (record) {
+      records.push(record);
+    }
+  }
+  return records;
+};
+
+const resolveCustomBillingContext = (enquiryCustomId) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return null;
+  }
+  const detail = buildCustomEnquiryDetail(id);
+  if (!detail) {
+    return null;
+  }
+  const summary =
+    resolveCustomPaymentSummary(id) || {
+      enquiryCustomId: id,
+      grandTotal: 0,
+      advancePayment: 0,
+      balance: 0,
+      uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${id}`,
+    };
+  const billing = buildCustomBillingData(detail, summary);
+  return { detail, summary, billing };
+};
+
+const listCustomFamilyHeadData = ({ enquiryCustomId } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return {
+      enquiryCustomId: null,
+      total: 0,
+      data: [],
+      message: "No family head data available",
+    };
+  }
+  const records = buildCustomFamilyHeadRecords(id);
+  const billingContext = resolveCustomBillingContext(id);
+  const isPaymentDone = billingContext ? billingContext.billing.balance <= 0 : false;
+  const data = records.map((record, index) => ({
+    ...record,
+    status: record.status ?? (index === 0 && isPaymentDone ? 1 : 0),
+  }));
+  return {
+    enquiryCustomId: id,
+    total: data.length,
+    data,
+    message: data.length ? "Family head data fetched successfully" : "No family head data available",
+  };
+};
+
+const resolveCustomFamilyHeadContext = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  const detailId = toPositiveInt(enquiryDetailCustomId, null);
+  const listing = id ? listCustomFamilyHeadData({ enquiryCustomId: id }) : { data: [] };
+  let familyHead = null;
+  if (detailId) {
+    familyHead =
+      listing.data.find(
+        (record) =>
+          Number(record.enquiryDetailCustomId) === detailId || Number(record.familyHeadCtId) === detailId
+      ) || null;
+  }
+  if (!familyHead) {
+    familyHead = listing.data[0] || null;
+  }
+  const resolvedCustomId = familyHead?.enquiryCustomId || id || null;
+  let detail = resolvedCustomId ? buildCustomEnquiryDetail(resolvedCustomId) : null;
+  if (!familyHead && detail) {
+    const familyCount = Math.max(1, toPositiveInt(detail.familyHeadNo, null) || 1);
+    familyHead = createCustomFamilyHeadRecord(detail, 0, familyCount);
+  }
+  if (!detail && familyHead?.enquiryCustomId) {
+    detail = buildCustomEnquiryDetail(familyHead.enquiryCustomId);
+  }
+  return {
+    enquiryCustomId: detail?.enquiryCustomId || familyHead?.enquiryCustomId || id || null,
+    enquiryDetailCustomId: familyHead?.enquiryDetailCustomId || detail?.enquiryDetailCustomId || null,
+    familyHead,
+    detail,
+  };
+};
+
+const resolveCustomRoomShareOptions = (detail = {}) => {
+  const id = toPositiveInt(detail?.enquiryCustomId, null);
+  const source = (id && customEnquiryPackages[id]) || customPackageTemplate;
+  if (Array.isArray(source) && source.length) {
+    return source.map((pkg, index) => ({
+      roomShareType: toPositiveInt(pkg.packageCustomId || pkg.packageId, null) || index + 1,
+      roomShareTypeLabel: pkg.packageLabel || pkg.packageName || `Package ${index + 1}`,
+    }));
+  }
+  return DEFAULT_ROOM_SHARING_OPTIONS.map((option, index) => ({
+    roomShareType: option.roomShareId || index + 1,
+    roomShareTypeLabel: option.roomShareName || `Option ${index + 1}`,
+  }));
+};
+
+const buildCustomGuestDetailRecords = (context = {}) => {
+  const familyHead = context.familyHead;
+  if (!familyHead) {
+    return [];
+  }
+  const detail = context.detail || (familyHead.enquiryCustomId ? buildCustomEnquiryDetail(familyHead.enquiryCustomId) : null);
+  const paxCount = Math.max(
+    1,
+    toPositiveInt(familyHead.paxPerHead, null) || resolveCustomTotalPax(detail || {})
+  );
+  const roomOptions = resolveCustomRoomShareOptions(detail || {});
+  const addressFallback =
+    detail?.address ||
+    (Array.isArray(detail?.cityDetails) && detail.cityDetails.length ? detail.cityDetails[0].citiesName : null) ||
+    detail?.destinationName ||
+    "Pune, India";
+  const contactSeed =
+    familyHead.guestId || familyHead.enquiryDetailCustomId || familyHead.enquiryCustomId || context.enquiryCustomId || 1;
+  const records = [];
+  for (let index = 0; index < paxCount; index += 1) {
+    const guestId = Number(`${contactSeed}${index + 1}`);
+    const [firstNameRaw, lastNameRaw] = splitNameParts(
+      `${familyHead.firstName} ${familyHead.lastName} ${index + 1}`
+    );
+    const firstName = firstNameRaw || "Guest";
+    const lastName = (lastNameRaw || "").trim();
+    const roomShare = roomOptions[index % roomOptions.length];
+    const issueDate = addDaysToDate(new Date(), -5 * 365 - index * 11);
+    const expiryDate = addDaysToDate(issueDate, 10 * 365);
+    records.push({
+      enquiryCustomId: detail?.enquiryCustomId || context.enquiryCustomId || null,
+      enquiryDetailCustomId: familyHead.enquiryDetailCustomId,
+      guestId,
+      preFixId: familyHead.preFixId,
+      preFixName: familyHead.preFixName,
+      firstName,
+      lastName,
+      guestName: `${firstName} ${lastName}`.trim(),
+      address: addressFallback,
+      contact: detail?.contact || `98${String(guestId).padStart(8, "0")}`,
+      gender: index % 2 === 0 ? "Male" : "Female",
+      dob: formatDateString(addDaysToDate(new Date(), -(25 + index) * 365)),
+      mailId:
+        detail?.mailId ||
+        `${firstName.toLowerCase()}.${(lastName || "guest").toLowerCase() || "guest"}@waari.travel`,
+      roomShareType: roomShare.roomShareType,
+      roomShareTypeLabel: roomShare.roomShareTypeLabel,
+      adharCard: `${DOCUMENT_BASE_URL}/aadhar-${guestId}.pdf`,
+      adharNo: `9999${String(guestId).padStart(8, "0")}`,
+      pan: `${DOCUMENT_BASE_URL}/pan-${guestId}.pdf`,
+      panNo: `WAARI${String(guestId).padStart(4, "0")}K`,
+      passport: `${DOCUMENT_BASE_URL}/passport-${guestId}.pdf`,
+      passportNo: `P${String(guestId).padStart(7, "0")}`,
+      passport_issue_date: formatDateString(issueDate),
+      passport_expiry_date: formatDateString(expiryDate),
+      marriageDate: index === 0 ? formatDateString(addDaysToDate(new Date(), -2000)) : "",
+    });
+  }
+  return records;
+};
+
+const getCustomGuestDetails = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  if (!context.familyHead) {
+    return {
+      enquiryCustomId: context.enquiryCustomId,
+      enquiryDetailCustomId: context.enquiryDetailCustomId,
+      total: 0,
+      data: [],
+      message: "No guest details available",
+    };
+  }
+  const records = buildCustomGuestDetailRecords(context);
+  return {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.familyHead.enquiryDetailCustomId,
+    total: records.length,
+    data: records,
+    message: "Guest details fetched successfully",
+  };
 };
 
 const listFamilyHeadData = ({ enquiryGroupId, familyHeadGtId } = {}) => {
@@ -2946,6 +5593,46 @@ const listFamilyHeadData = ({ enquiryGroupId, familyHeadGtId } = {}) => {
     total: records.length,
     data: records,
     message: records.length ? "Family head data fetched successfully" : "No family head data available",
+  };
+};
+
+const saveFamilyHeadDetails = async ({ enquiryGroupId, familyHead, familyHeads } = {}) => {
+  const id = toPositiveInt(enquiryGroupId, null);
+  if (!id) {
+    const error = new Error("enquiryGroupId is required");
+    error.status = 400;
+    throw error;
+  }
+  const entriesInput = Array.isArray(familyHead)
+    ? familyHead
+    : Array.isArray(familyHeads)
+    ? familyHeads
+    : [];
+  const normalizedEntries = sanitizeFamilyHeadEntries(entriesInput);
+  if (!normalizedEntries.length) {
+    const error = new Error("familyHead data is required");
+    error.status = 400;
+    throw error;
+  }
+  const tourIndex = groupTours.findIndex((tour) => Number(tour.groupTourId) === id);
+  if (tourIndex === -1) {
+    const error = new Error("Group tour not found");
+    error.status = 404;
+    throw error;
+  }
+  groupFamilyHeadOverrides[id] = cloneValue(normalizedEntries, []);
+  const existing = groupTours[tourIndex];
+  groupTours[tourIndex] = {
+    ...existing,
+    familyHeadNo: normalizedEntries.length,
+    updatedAt: new Date().toISOString(),
+  };
+  await persistTourFixture("groupFamilyHeadOverrides");
+  await persistTourFixture("groupTours");
+  const response = listFamilyHeadData({ enquiryGroupId: id });
+  return {
+    ...response,
+    message: "Family head details saved successfully",
   };
 };
 
@@ -3237,6 +5924,17 @@ const attachGroupGuestDetailIds = (records = []) =>
     groupGuestDetailId: resolveGroupGuestDetailId(guest, index),
   }));
 
+const getGroupCancellationOverride = (groupGuestDetailId) => {
+  const id = toPositiveInt(groupGuestDetailId, null);
+  if (!id) {
+    return {};
+  }
+  if (!groupCancellationOverrides[id]) {
+    groupCancellationOverrides[id] = {};
+  }
+  return groupCancellationOverrides[id];
+};
+
 const buildCancellationProcessRecords = (guests = []) => {
   if (!guests.length) {
     return [];
@@ -3262,7 +5960,7 @@ const buildCancellationProcessRecords = (guests = []) => {
       template.cancelType === 2
         ? template.creditNote || `${DOCUMENT_BASE_URL}/credit-notes/credit-note-${guest.groupGuestDetailId}.pdf`
         : null;
-    return {
+    const record = {
       enquiryGroupId: guest.enquiryGroupId,
       familyHeadGtId: guest.familyHeadGtId,
       guestId: guest.guestId,
@@ -3280,6 +5978,26 @@ const buildCancellationProcessRecords = (guests = []) => {
       ifsc: template.ifsc || "WAAR0000001",
       refundProof,
       creditNote,
+    };
+    const override = getGroupCancellationOverride(record.groupGuestDetailId);
+    if (!override || !Object.keys(override).length) {
+      return record;
+    }
+    return {
+      ...record,
+      ...override,
+      cancellationReason: override.cancellationReason || record.cancellationReason,
+      cancellationCharges: override.cancellationCharges ?? record.cancellationCharges,
+      refundAmount: override.refundAmount ?? record.refundAmount,
+      cancelType: override.cancelType ?? record.cancelType,
+      status: override.status ?? record.status,
+      accountName: override.accountName || record.accountName,
+      accountNo: override.accountNo || record.accountNo,
+      bank: override.bank || record.bank,
+      branch: override.branch || record.branch,
+      ifsc: override.ifsc || record.ifsc,
+      refundProof: override.refundProof || record.refundProof,
+      creditNote: override.creditNote || record.creditNote,
     };
   });
 };
@@ -3346,6 +6064,70 @@ const getGuestCouponUsage = ({ guestId, enquiryGroupId } = {}) => {
   return {
     data: coupon,
     message: "Coupon usage fetched successfully",
+  };
+};
+
+const uploadGroupRefundProof = async ({ enquiryGroupId, familyHeadGtId, groupGuestDetailId, refundProof } = {}) => {
+  const detailId = toPositiveInt(groupGuestDetailId, null);
+  if (!detailId) {
+    const error = new Error("groupGuestDetailId is required");
+    error.status = 400;
+    throw error;
+  }
+  const proofLink = toStringValue(refundProof);
+  if (!proofLink) {
+    const error = new Error("refundProof is required");
+    error.status = 400;
+    throw error;
+  }
+  const override = getGroupCancellationOverride(detailId);
+  override.refundProof = proofLink;
+  if (enquiryGroupId) {
+    override.enquiryGroupId = toPositiveInt(enquiryGroupId, null) || override.enquiryGroupId || null;
+  }
+  if (familyHeadGtId) {
+    override.familyHeadGtId = toPositiveInt(familyHeadGtId, null) || override.familyHeadGtId || null;
+  }
+  override.updatedAt = new Date().toISOString();
+  groupCancellationOverrides[detailId] = override;
+  await persistTourFixture("groupCancellationOverrides");
+  return {
+    message: "Refund proof uploaded successfully",
+    groupGuestDetailId: detailId,
+    refundProof: proofLink,
+  };
+};
+
+const cancelGroupEnquiry = async ({ enquiryGroupId, closureReason, cancelledBy } = {}) => {
+  const id = toPositiveInt(enquiryGroupId, null);
+  if (!id) {
+    const error = new Error("enquiryGroupId is required");
+    error.status = 400;
+    throw error;
+  }
+  const reason = toStringValue(closureReason);
+  if (!reason) {
+    const error = new Error("closureReason is required");
+    error.status = 400;
+    throw error;
+  }
+  const detail = buildGroupEnquiryDetail(id) || {};
+  const record = {
+    enquiryGroupId: id,
+    groupTourId: detail.enquiryGroupId || id,
+    groupName: detail.groupName || detail.tourName || `Group Tour ${id}`,
+    guestName: detail.fullName || detail.contactName || detail.groupName || "Waari Guest",
+    closureReason: reason,
+    cancelledBy: toStringValue(cancelledBy) || "system",
+    cancelledAt: new Date().toISOString(),
+    uniqueEnqueryId: detail.uniqueEnqueryId || `GT-${String(id).padStart(4, "0")}`,
+    status: "CANCELLED",
+  };
+  groupEnquiryCancellationLogs[id] = record;
+  await persistTourFixture("groupEnquiryCancellationLogs");
+  return {
+    message: "Group enquiry cancelled successfully",
+    data: record,
   };
 };
 
@@ -3441,52 +6223,247 @@ const getPaymentCalculationDetails = ({ enquiryGroupId, familyHeadGtId } = {}) =
   };
 };
 
-const getGroupBillView = ({ enquiryGroupId, familyHeadGtId } = {}) => {
-  const context = resolveFamilyHeadContext({ enquiryGroupId, familyHeadGtId });
+const getGroupPaymentOverride = (groupPaymentDetailId) => {
+  const id = toPositiveInt(groupPaymentDetailId, null);
+  if (!id) {
+    return {};
+  }
+  if (!groupPaymentOverrides[id]) {
+    groupPaymentOverrides[id] = {};
+  }
+  return groupPaymentOverrides[id];
+};
+
+const buildGroupAdvancePayments = (context, payment, receiptPrefix) => {
+  const entries = [];
+  const baseId = context.familyHead.familyHeadGtId || context.enquiryGroupId || 0;
+  const primaryId = Number(`${baseId}1`);
+  entries.push({
+    groupPaymentDetailId: primaryId,
+    enquiryGroupId: context.enquiryGroupId,
+    familyHeadGtId: context.familyHead.familyHeadGtId,
+    advancePayment: payment.advancePayment,
+    status: 1,
+    paymentModeId: 1,
+    onlineTypeId: 1,
+    paymentDate: formatDateString(new Date()),
+    transactionId: `TXN${primaryId}`,
+    transactionProof: `${DOCUMENT_BASE_URL}/payments/${primaryId}.pdf`,
+    receiptNo: `${receiptPrefix}-1`,
+  });
+  if (payment.balance > 0) {
+    const secondaryId = Number(`${baseId}2`);
+    entries.push({
+      groupPaymentDetailId: secondaryId,
+      enquiryGroupId: context.enquiryGroupId,
+      familyHeadGtId: context.familyHead.familyHeadGtId,
+      advancePayment: Math.min(payment.balance, payment.advancePayment / 2),
+      status: 0,
+      paymentModeId: 2,
+      paymentDate: formatDateString(addDaysToDate(new Date(), 7)),
+      bankName: "Waari Cooperative Bank",
+      chequeNo: `CQ${secondaryId}`,
+      receiptNo: `${receiptPrefix}-2`,
+    });
+  }
+  return entries.map((entry) => {
+    const override = getGroupPaymentOverride(entry.groupPaymentDetailId);
+    const paymentModeMeta = resolvePaymentModeMeta(override.paymentModeId ?? entry.paymentModeId);
+    const onlineMeta = resolveOnlineTypeMeta(override.onlineTypeId ?? entry.onlineTypeId);
+    return {
+      ...entry,
+      ...override,
+      status: override.status ?? entry.status,
+      paymentModeId: paymentModeMeta.paymentModeId,
+      paymentModeName: override.paymentModeName || paymentModeMeta.paymentModeName,
+      paymentMode: override.paymentModeName || paymentModeMeta.paymentModeName,
+      onlineTypeId: onlineMeta.onlineTypeId,
+      onlineTypeName: override.onlineTypeName || onlineMeta.onlineTypeName,
+      paymentDate: override.paymentDate || entry.paymentDate,
+      bankName: override.bankName || entry.bankName || "Waari Bank",
+      chequeNo: override.chequeNo || entry.chequeNo || "",
+      transactionId: override.transactionId || entry.transactionId || `TXN${entry.groupPaymentDetailId}`,
+      transactionProof:
+        override.transactionProof || entry.transactionProof || `${DOCUMENT_BASE_URL}/payments/${entry.groupPaymentDetailId}.pdf`,
+    };
+  });
+};
+
+const buildGroupBillingPayload = (context) => {
   if (!context.familyHead || !context.tour) {
-    return { data: {}, message: "Family head data not found" };
+    return null;
   }
   const share = resolveFamilyHeadShare(context.tour, context.familyHead);
   const payment = buildPaymentBreakdown(share.shareAmount);
   const receiptPrefix = `REC-${context.familyHead.familyHeadGtId || context.enquiryGroupId}`;
-  const advancePayments = [
-    {
-      groupPaymentDetailId: Number(`${context.familyHead.familyHeadGtId || context.enquiryGroupId}1`),
-      advancePayment: payment.advancePayment,
-      status: 1,
-      receiptNo: `${receiptPrefix}-1`,
-      paymentMode: PAYMENT_MODE_OPTIONS[0].paymentModeName,
-      paymentDate: formatDateString(new Date()),
-    },
-  ];
-  if (payment.balance > 0) {
-    advancePayments.push({
-      groupPaymentDetailId: Number(`${context.familyHead.familyHeadGtId || context.enquiryGroupId}2`),
-      advancePayment: Math.min(payment.balance, payment.advancePayment / 2),
-      status: 0,
-      receiptNo: `${receiptPrefix}-2`,
-      paymentMode: PAYMENT_MODE_OPTIONS[2].paymentModeName,
-      paymentDate: formatDateString(addDaysToDate(new Date(), 7)),
-    });
-  }
-  const data = {
+  const advancePayments = buildGroupAdvancePayments(context, payment, receiptPrefix);
+  const paidAmount = advancePayments
+    .filter((entry) => Number(entry.status) === 1)
+    .reduce((total, entry) => total + toNumber(entry.advancePayment, 0), 0);
+  const balance = Math.max(0, payment.grand - paidAmount);
+  return {
     enquiryGroupId: context.enquiryGroupId,
     familyHeadGtId: context.familyHead.familyHeadGtId,
     billingName: `${context.familyHead.preFixName} ${context.familyHead.firstName} ${context.familyHead.lastName}`.trim(),
     address: context.familyHead.address,
     phoneNumber: context.familyHead.contact,
-    gstIn: "27AAACW1234F1Z5",
-    panNumber: "AAACW1234F",
+    gstIn: COMPANY_PROFILE.gstIn,
+    panNumber: COMPANY_PROFILE.panNo,
     grandTotal: payment.grand,
-    balance: Math.max(0, payment.balance),
-    isPaymentDone: payment.balance <= 0,
+    balance,
+    isPaymentDone: balance <= 0,
     advancePayments,
   };
+};
+
+const listGroupBillingSnapshots = () => {
+  const directory = buildFamilyHeadDirectory();
+  if (!directory.length) {
+    return [];
+  }
+  return directory
+    .map((familyHead) => {
+      const context = resolveFamilyHeadContext({
+        enquiryGroupId: familyHead.enquiryGroupId,
+        familyHeadGtId: familyHead.familyHeadGtId,
+      });
+      if (!context.familyHead || !context.tour) {
+        return null;
+      }
+      const billing = buildGroupBillingPayload(context);
+      return billing
+        ? {
+            enquiryGroupId: context.enquiryGroupId,
+            familyHead: context.familyHead,
+            tour: context.tour,
+            billing,
+          }
+        : null;
+    })
+    .filter(Boolean);
+};
+
+const findGroupPaymentEntry = (groupPaymentDetailId) => {
+  const paymentId = toPositiveInt(groupPaymentDetailId, null);
+  if (!paymentId) {
+    return null;
+  }
+  const snapshots = listGroupBillingSnapshots();
+  for (const snapshot of snapshots) {
+    const payment = snapshot.billing.advancePayments.find(
+      (entry) => Number(entry.groupPaymentDetailId) === paymentId
+    );
+    if (payment) {
+      return { ...snapshot, payment };
+    }
+  }
+  return null;
+};
+
+const getGroupBillView = ({ enquiryGroupId, familyHeadGtId } = {}) => {
+  const context = resolveFamilyHeadContext({ enquiryGroupId, familyHeadGtId });
+  if (!context.familyHead || !context.tour) {
+    return { data: {}, message: "Family head data not found" };
+  }
+  const data = buildGroupBillingPayload(context);
   return {
     enquiryGroupId: context.enquiryGroupId,
     familyHeadGtId: context.familyHead.familyHeadGtId,
     data,
     message: "Group bill fetched successfully",
+  };
+};
+
+const getGroupNewPaymentDetails = ({ groupPaymentDetailId } = {}) => {
+  const context = findGroupPaymentEntry(groupPaymentDetailId);
+  if (!context) {
+    return { message: "Group payment detail not found" };
+  }
+  return {
+    groupPaymentDetailId: context.payment.groupPaymentDetailId,
+    enquiryGroupId: context.enquiryGroupId,
+    familyHeadGtId: context.familyHead.familyHeadGtId,
+    advancePayment: context.payment.advancePayment,
+    paymentMode: context.payment.paymentModeName,
+    paymentModeName: context.payment.paymentModeName,
+    onlineTypeName: context.payment.onlineTypeName,
+    bankName: context.payment.bankName,
+    chequeNo: context.payment.chequeNo,
+    paymentDate: context.payment.paymentDate,
+    transactionId: context.payment.transactionId,
+    transactionProof: context.payment.transactionProof,
+    status: context.payment.status,
+    message: "Group payment detail fetched successfully",
+  };
+};
+
+const updateGroupPaymentStatus = async ({ groupPaymentDetailId } = {}) => {
+  const paymentId = toPositiveInt(groupPaymentDetailId, null);
+  if (!paymentId) {
+    const error = new Error("groupPaymentDetailId is required");
+    error.status = 400;
+    throw error;
+  }
+  const context = findGroupPaymentEntry(paymentId);
+  if (!context) {
+    const error = new Error("Group payment detail not found");
+    error.status = 404;
+    throw error;
+  }
+  const override = getGroupPaymentOverride(paymentId);
+  override.status = 1;
+  override.paymentDate = formatDateOnly(new Date());
+  override.paymentModeId = override.paymentModeId || context.payment.paymentModeId || 1;
+  override.transactionId = override.transactionId || context.payment.transactionId || `TXN${paymentId}`;
+  override.transactionProof =
+    override.transactionProof || context.payment.transactionProof || `${DOCUMENT_BASE_URL}/payments/${paymentId}.pdf`;
+  groupPaymentOverrides[paymentId] = override;
+  await persistTourFixture("groupPaymentOverrides");
+  return {
+    groupPaymentDetailId: paymentId,
+    message: "Group payment status updated successfully",
+  };
+};
+
+const getGroupReceiptDetails = ({ groupPaymentDetailId, familyHeadGtId } = {}) => {
+  const context = findGroupPaymentEntry(groupPaymentDetailId);
+  if (!context) {
+    return { message: "Receipt not found" };
+  }
+  const requestedHeadId = toPositiveInt(familyHeadGtId, null);
+  if (requestedHeadId && Number(context.familyHead.familyHeadGtId) !== requestedHeadId) {
+    return { message: "Receipt not found" };
+  }
+  const paxCount = resolveGroupPaxCount(context.tour);
+  const nights = toPositiveInt(context.tour.night ?? context.tour.nights, null) || Math.max(1, context.tour.days - 1 || 4);
+  const days = toPositiveInt(context.tour.days, null) || nights + 1;
+  return {
+    groupPaymentDetailId: context.payment.groupPaymentDetailId,
+    enquiryGroupId: context.enquiryGroupId,
+    familyHeadGtId: context.familyHead.familyHeadGtId,
+    receiptNo: context.payment.receiptNo || `REC-${context.payment.groupPaymentDetailId}`,
+    paymentDate: context.payment.paymentDate,
+    paymentMode: context.payment.paymentModeName,
+    transactionMode: context.payment.onlineTypeName || "",
+    transactionId: context.payment.transactionId || "",
+    bankName: context.payment.bankName || "",
+    chequeNo: context.payment.chequeNo || "",
+    billingName: context.billing.billingName,
+    address: context.billing.address,
+    phoneNo: context.billing.phoneNumber,
+    gstIn: context.billing.gstIn,
+    gstin: context.billing.gstIn,
+    panNo: context.billing.panNumber,
+    destination: context.tour.destinationName || "Group Tour",
+    tourName: context.tour.tourName,
+    groupName: context.tour.groupName || context.tour.tourName,
+    night: nights,
+    nights,
+    days,
+    adults: paxCount,
+    child: Math.max(0, Math.floor(paxCount / 4)),
+    advancePayment: context.payment.advancePayment,
+    message: "Group receipt fetched successfully",
   };
 };
 
@@ -3504,10 +6481,33 @@ const formatTimeString = (date) => {
   return date.toISOString().slice(11, 16);
 };
 
+const getStoredCallFollowUps = (enquiryGroupId) => {
+  const id = toPositiveInt(enquiryGroupId, null);
+  if (!id) {
+    return [];
+  }
+  const stored = Array.isArray(groupCallFollowUps[id]) ? groupCallFollowUps[id] : [];
+  return stored.map((entry, index) => {
+    const statusMeta = resolveCallStatusMeta(entry.callStatusId);
+    return {
+      callFollowUpId: entry.callFollowUpId || Number(`${id}${index + 51}`),
+      enquiryGroupId: id,
+      callStatusId: statusMeta.callStatusId,
+      callStatusName: entry.callStatusName || statusMeta.callStatusName,
+      callSummary: entry.callSummary || `Discussed ${statusMeta.callStatusName.toLowerCase()}`,
+      currentFollowUpDate: entry.currentFollowUpDate || formatDateOnly(startOfToday()),
+      currentFollowUpTime: entry.currentFollowUpTime || "10:00",
+      nextFollowUpDate: entry.nextFollowUpDate || formatDateOnly(startOfToday()),
+      nextFollowUpTime: entry.nextFollowUpTime || "10:00",
+    };
+  });
+};
+
 const buildCallFollowHistory = (enquiryGroupId) => {
+  const stored = getStoredCallFollowUps(enquiryGroupId);
   const tour = resolveGroupTourRecord(enquiryGroupId);
   if (!tour) {
-    return [];
+    return stored;
   }
   const callCount = Math.max(1, Math.min(5, Math.ceil(resolveGroupPaxCount(tour) / 2)));
   const baseDate = toDate(tour.startDate) || new Date();
@@ -3533,6 +6533,43 @@ const buildCallFollowHistory = (enquiryGroupId) => {
       assignedUserName: assigned.assignedUserName,
     });
   }
+  return stored.length ? [...stored, ...history] : history;
+};
+
+const buildCustomCallFollowHistory = (enquiryCustomId) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return [];
+  }
+  const detail = buildCustomEnquiryDetail(id);
+  if (!detail) {
+    return [];
+  }
+  const callCount = Math.max(1, Math.min(5, Math.ceil(resolveCustomTotalPax(detail) / 2)));
+  const baseDate = toDate(detail.startDate) || new Date();
+  const assignedUserId = toPositiveInt(detail.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID;
+  const assignedUserName = detail.assignedUserName || "Waari Custom Team";
+  const history = [];
+  for (let index = 0; index < callCount; index += 1) {
+    const current = new Date(baseDate);
+    current.setDate(current.getDate() - (callCount - index));
+    const next = new Date(current);
+    next.setDate(next.getDate() + (index + 1));
+    const status = DEFAULT_CALL_STATUS_OPTIONS[index % DEFAULT_CALL_STATUS_OPTIONS.length];
+    history.push({
+      callFollowUpId: Number(`${id}${index + 1}`),
+      enquiryCustomId: id,
+      callStatusId: status.callStatusId,
+      callStatusName: status.callStatusName,
+      callSummary: `Discussed ${detail.groupName || detail.destinationName || "itinerary"} updates`,
+      currentFollowUpDate: formatDateString(current),
+      currentFollowUpTime: formatTimeString(current),
+      nextFollowUpDate: formatDateString(next),
+      nextFollowUpTime: formatTimeString(next),
+      assignedUserId,
+      assignedUserName,
+    });
+  }
   return history;
 };
 
@@ -3551,6 +6588,42 @@ const listCallFollowHistory = (enquiryGroupId) => {
   };
 };
 
+const saveGroupCallFollowUp = async ({ enquiryGroupId, callStatusId, callSummary, nextFollowUpDate, nextFollowUpTime } = {}) => {
+  const id = toPositiveInt(enquiryGroupId, null);
+  if (!id) {
+    const error = new Error("enquiryGroupId is required");
+    error.status = 400;
+    throw error;
+  }
+  const statusMeta = resolveCallStatusMeta(callStatusId);
+  const summary = toStringValue(callSummary) || `Discussed ${statusMeta.callStatusName.toLowerCase()} status`;
+  const now = new Date();
+  const followUpDate = normalizeFollowUpDate(nextFollowUpDate, addDaysToDate(now, 2));
+  const followUpTime = toStringValue(nextFollowUpTime) || "10:00";
+  const detail = buildGroupEnquiryDetail(id) || {};
+  const record = {
+    callFollowUpId: Number(`${id}${Date.now().toString().slice(-4)}`),
+    enquiryGroupId: id,
+    callStatusId: statusMeta.callStatusId,
+    callStatusName: statusMeta.callStatusName,
+    callSummary: summary,
+    currentFollowUpDate: formatDateOnly(now),
+    currentFollowUpTime: formatTimeString(now),
+    nextFollowUpDate: followUpDate,
+    nextFollowUpTime: followUpTime,
+    assignedUserId: detail.assignedUserId || DEFAULT_FOLLOW_UP_USER_ID,
+    assignedUserName: detail.assignedUserName || "Waari Team",
+  };
+  const existing = Array.isArray(groupCallFollowUps[id]) ? groupCallFollowUps[id] : [];
+  existing.unshift(record);
+  groupCallFollowUps[id] = existing.slice(0, 25);
+  await persistTourFixture("groupCallFollowUps");
+  return {
+    message: "Call follow-up saved successfully",
+    data: record,
+  };
+};
+
 const getGroupTotalCallCount = (enquiryGroupId) => {
   const tour = resolveGroupTourRecord(enquiryGroupId);
   const history = buildCallFollowHistory(enquiryGroupId);
@@ -3558,6 +6631,20 @@ const getGroupTotalCallCount = (enquiryGroupId) => {
   const groupName = (tour && (tour.groupName || tour.tourName)) || `Group ${resolvedId || 1}`;
   return {
     enquiryGroupId: resolvedId,
+    callCount: history.length,
+    groupName,
+    message: "Follow-up call count fetched successfully",
+  };
+};
+
+const getCustomTotalCallCount = (enquiryCustomId) => {
+  const detail = buildCustomEnquiryDetail(enquiryCustomId);
+  const history = buildCustomCallFollowHistory(enquiryCustomId);
+  const resolvedId = detail?.enquiryCustomId || toPositiveInt(enquiryCustomId, null) || 0;
+  const fallbackName = resolvedId ? `Custom Enquiry ${resolvedId}` : "Custom Tour";
+  const groupName = detail?.groupName || detail?.tourName || detail?.destinationName || fallbackName;
+  return {
+    enquiryCustomId: resolvedId,
     callCount: history.length,
     groupName,
     message: "Follow-up call count fetched successfully",
@@ -3627,6 +6714,105 @@ const getGroupTourCompletionStatus = ({ enquiryGroupId, familyHeadGtId } = {}) =
   };
 };
 
+const getCustomTourCompletionStatus = ({ enquiryCustomId } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return {
+      enquiryCustomId: null,
+      enquiryDetailCustomId: null,
+      completionStatusCount: 0,
+      message: "Custom tour completion status fetched successfully",
+    };
+  }
+  const billingContext = resolveCustomBillingContext(id);
+  if (!billingContext) {
+    return {
+      enquiryCustomId: id,
+      enquiryDetailCustomId: null,
+      completionStatusCount: 1,
+      message: "Custom tour completion status fetched successfully",
+    };
+  }
+  const familyHeads = listCustomFamilyHeadData({ enquiryCustomId: id }).data;
+  const followUps = buildCustomCallFollowHistory(id);
+  const advancePayments = billingContext.billing.advancePayments || [];
+  let completionStatusCount = 1;
+  if (familyHeads.length) {
+    completionStatusCount += 1;
+  }
+  if (followUps.length) {
+    completionStatusCount += 1;
+  }
+  if (advancePayments.some((payment) => Number(payment.status) === 1)) {
+    completionStatusCount += 1;
+  }
+  if (billingContext.billing.balance <= 0) {
+    completionStatusCount += 1;
+  }
+  if (followUps.length > 2) {
+    completionStatusCount += 1;
+  }
+  completionStatusCount = Math.min(6, completionStatusCount);
+  return {
+    enquiryCustomId: billingContext.detail.enquiryCustomId,
+    enquiryDetailCustomId: billingContext.detail.enquiryDetailCustomId,
+    completionStatusCount,
+    message: "Custom tour completion status fetched successfully",
+  };
+};
+
+const getGroupEnquiryStatus = ({ enquiryGroupId } = {}) => {
+  const tour = resolveGroupTourRecord(enquiryGroupId);
+  if (!tour) {
+    return {
+      enquiryGroupId: toPositiveInt(enquiryGroupId, null),
+      isFamilyHeadData: false,
+      isPaymentDone: false,
+      message: "Enquiry status fetched successfully",
+    };
+  }
+  const resolvedId = tour.groupTourId;
+  const overrides = Array.isArray(groupFamilyHeadOverrides[resolvedId]) ? groupFamilyHeadOverrides[resolvedId] : [];
+  const isFamilyHeadData = overrides.length > 0;
+  const paymentResponse = getGroupPaymentDetails({ enquiryGroupId: resolvedId });
+  const paymentRecord = paymentResponse.data[0] || {};
+  const paymentCleared = paymentRecord.balance !== undefined ? paymentRecord.balance <= 0 : false;
+  const isPaymentDone = paymentCleared || isFamilyHeadData;
+  return {
+    enquiryGroupId: resolvedId,
+    isFamilyHeadData,
+    isPaymentDone,
+    message: "Enquiry status fetched successfully",
+  };
+};
+
+const getCustomEnquiryStatus = ({ enquiryCustomId } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return {
+      enquiryCustomId: null,
+      isFamilyHeadData: false,
+      isPaymentDone: false,
+      isPackageConfirm: false,
+      message: "Enquiry status fetched successfully",
+    };
+  }
+  const familyHeads = listCustomFamilyHeadData({ enquiryCustomId: id }).data;
+  const billingContext = resolveCustomBillingContext(id);
+  const isPaymentDone = billingContext ? billingContext.billing.balance <= 0 : false;
+  const detail = billingContext ? billingContext.detail : buildCustomEnquiryDetail(id);
+  const packages = customEnquiryPackages[id];
+  const isPackageConfirm =
+    (Array.isArray(packages) && packages.length > 0) || Boolean(detail && detail.isPackageConfirm);
+  return {
+    enquiryCustomId: id,
+    isFamilyHeadData: familyHeads.length > 0,
+    isPaymentDone,
+    isPackageConfirm,
+    message: "Enquiry status fetched successfully",
+  };
+};
+
 const getGroupEnquiryDetails = (enquiryGroupId) => buildGroupEnquiryDetail(enquiryGroupId);
 
 const listGroupTourDropdown = () =>
@@ -3643,7 +6829,17 @@ const listGroupTourDropdown = () =>
 
 const listPriorityOptions = () => priorities;
 
-const listNamePrefixes = () => namePrefixes;
+const listHotelCategories = () => {
+  const source = Array.isArray(hotelCategories) && hotelCategories.length
+    ? hotelCategories
+    : DEFAULT_HOTEL_CATEGORY_OPTIONS;
+  return source.map((entry, index) => ({
+    hotelCatId: entry.hotelCatId || entry.id || index + 1,
+    hotelCatName: entry.hotelCatName || entry.name || entry.title || `Category ${index + 1}`,
+  }));
+};
+
+const listNamePrefixes = () => (namePrefixes.length ? namePrefixes : DEFAULT_NAME_PREFIXES);
 
 const listEnquiryReferences = () => enquiryReferences;
 
@@ -4173,6 +7369,44 @@ module.exports = {
   listCustomFollowUps,
   listPlanEnquiryUsersGt,
   listPlanEnquiryUsersCt,
+  getPlanEnquiryUserDataGt,
+  getPlanEnquiryUserDataCt,
+  assignUserToPlanEnquiryGt,
+  assignUserToPlanEnquiryCt,
+  listAssignToUsers,
+  listGuestsDirectory,
+  listAllGuestsDirectory,
+  searchAllGuestsDirectory,
+  searchGuestEmails,
+  addGuestUser,
+  createGroupTourEnquiry,
+  updateGroupTourEnquiry,
+  updateLoyaltyStatus,
+  getGuestTravelDetails,
+  getGuestLoyaltyHistory,
+  getRefereeGuestCounts,
+  getAllRefereeGuestCounts,
+  getRefereeGuestSales,
+  getAllRefereeGuestSales,
+  listLoyaltyGuests,
+  listAllLoyaltyGuests,
+  listBillingBirthdayGuests,
+  getLoyaltyBookingMetric,
+  getWelcomeBookingMetric,
+  getReferralRateMetric,
+  getMoreBookingCounts,
+  getCommissionReport,
+  listWaariSelectReport,
+  downloadWaariSelectReport,
+  listTopSalesPartners,
+  getMonthlyTargetGraphGt,
+  getGroupTargetSummary,
+  getGroupEnquiryGraphStats,
+  getGroupEnquiryTable,
+  getMonthlyTargetGraphCt,
+  getCustomTargetSummary,
+  getCustomEnquiryGraphStats,
+  getCustomEnquiryTable,
   listFutureEnquiryAllListing,
   listFutureEnquirySelfListing,
   listPendingGroupPayments,
@@ -4180,6 +7414,7 @@ module.exports = {
   listConfirmedCustomPayments,
   listGroupTourDropdown,
   listPriorityOptions,
+  listHotelCategories,
   listNamePrefixes,
   listEnquiryReferences,
   listGuestReferenceDropdown,
@@ -4202,7 +7437,11 @@ module.exports = {
   listDepartureTypes,
   listCountries,
   getGroupEnquiryDetails,
+  getGroupEnquiryStatus,
+  getCustomEnquiryStatus,
   listFamilyHeadData,
+  listCustomFamilyHeadData,
+  saveFamilyHeadDetails,
   getFamilyHeadEnquiryDetail,
   listFamilyHeadRoomShare,
   listRoomPriceOptions,
@@ -4210,6 +7449,7 @@ module.exports = {
   listGroupGuestsForCancellation,
   getGroupCancellationProcessData,
   getFamilyHeadGuestDetails,
+  getCustomGuestDetails,
   listGuestDocumentRecords,
   getGuestCouponUsage,
   checkGuestExists,
@@ -4220,10 +7460,18 @@ module.exports = {
   getGroupPaymentDetails,
   getPaymentCalculationDetails,
   getGroupBillView,
+  getGroupNewPaymentDetails,
+  updateGroupPaymentStatus,
+  getGroupReceiptDetails,
   getGroupTourCompletionStatus,
+  getCustomTourCompletionStatus,
   getGroupTotalCallCount,
+  getCustomTotalCallCount,
   listCallStatusOptions,
   listCallFollowHistory,
+  saveGroupCallFollowUp,
+  uploadGroupRefundProof,
+  cancelGroupEnquiry,
   listLostGroupEnquiries,
   listAllLostGroupEnquiries,
   listLostCustomEnquiries,
@@ -4241,6 +7489,10 @@ module.exports = {
   updateTailorMadeTour,
   getCustomizedEnquiryDetails,
   listCustomizedPackages,
+  getCustomBillView,
+  listCustomNewPayments,
+  getCustomReceiptDetails,
+  updateCustomPaymentStatus,
   listGroupTourGuests,
   listGroupGuestDetails,
   listCustomGuestDetails,

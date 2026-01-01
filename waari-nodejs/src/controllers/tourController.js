@@ -1,6 +1,7 @@
 const path = require("path");
 const { uploadsDir } = require("../../config/storage");
 const tourService = require("../services/tourService");
+const customEnquiryService = require("../services/customEnquiryService");
 
 const buildFileUrl = (req, file) => {
   if (!file) {
@@ -363,6 +364,15 @@ const listPriorityList = (req, res, next) => {
   }
 };
 
+const listHotelCategoryDropdown = (req, res, next) => {
+  try {
+    const data = tourService.listHotelCategories();
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listPrefixDropdown = (req, res, next) => {
   try {
     const data = tourService.listNamePrefixes();
@@ -375,6 +385,22 @@ const listPrefixDropdown = (req, res, next) => {
 const listGuestReferenceDropdown = (req, res, next) => {
   try {
     const data = tourService.listGuestReferenceDropdown();
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const searchGuestEmails = (req, res, next) => {
+  try {
+    const limit = tourService.toPositiveInt(req.query.limit, 10) || 10;
+    const data = tourService.searchGuestEmails({
+      firstName: req.query.firstName,
+      guestName: req.query.guestName,
+      search: req.query.search,
+      email: req.query.email,
+      limit,
+    });
     res.json({ data });
   } catch (error) {
     next(error);
@@ -500,6 +526,53 @@ const listCustomizedPackages = (req, res, next) => {
   }
 };
 
+const getCustomBillView = (req, res, next) => {
+  try {
+    const response = tourService.getCustomBillView({
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+      enquiryCustomId: req.query.enquiryCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listCustomNewPayments = (req, res, next) => {
+  try {
+    const response = tourService.listCustomNewPayments({
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+      enquiryCustomId: req.query.enquiryCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomReceiptView = (req, res, next) => {
+  try {
+    const response = tourService.getCustomReceiptDetails({
+      customPayDetailId: req.query.customPayDetailId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateCustomPaymentStatus = async (req, res, next) => {
+  try {
+    const payload = await tourService.updateCustomPaymentStatus({
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+      customPayDetailId: req.query.customPayDetailId,
+    });
+    res.json(payload);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGroupEnquiryDetails = (req, res, next) => {
   try {
     const enquiryGroupId = tourService.toPositiveInt(req.query.enquiryGroupId, null);
@@ -608,6 +681,26 @@ const listFamilyHeadData = (req, res, next) => {
   }
 };
 
+const listCustomFamilyHeadData = (req, res, next) => {
+  try {
+    const response = tourService.listCustomFamilyHeadData({
+      enquiryCustomId: req.query.enquiryCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const saveFamilyHeadDetails = async (req, res, next) => {
+  try {
+    const response = await tourService.saveFamilyHeadDetails(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getEnquiryFamilyHead = (req, res, next) => {
   try {
     const response = tourService.getFamilyHeadEnquiryDetail({
@@ -688,6 +781,18 @@ const getGuestDetailsGt = (req, res, next) => {
   }
 };
 
+const getGuestDetailsCt = (req, res, next) => {
+  try {
+    const response = tourService.getCustomGuestDetails({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listGuestDocuments = (req, res, next) => {
   try {
     const response = tourService.listGuestDocumentRecords({
@@ -730,6 +835,418 @@ const listPlanEnquiryUsersCt = (req, res, next) => {
         endDate: req.query.endDate,
       },
     });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPlanEnquiryUsersDataGt = (req, res, next) => {
+  try {
+    const planEnqId = tourService.toPositiveInt(req.query.planEnqId, null);
+    if (!planEnqId) {
+      return res.status(400).json({ message: "planEnqId is required" });
+    }
+    const response = tourService.getPlanEnquiryUserDataGt({ planEnqId });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPlanEnquiryUsersDataCt = (req, res, next) => {
+  try {
+    const planEnqId = tourService.toPositiveInt(req.query.planEnqId, null);
+    if (!planEnqId) {
+      return res.status(400).json({ message: "planEnqId is required" });
+    }
+    const response = tourService.getPlanEnquiryUserDataCt({ planEnqId });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addGuestUser = async (req, res, next) => {
+  try {
+    const response = await tourService.addGuestUser(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createGroupTourEnquiry = async (req, res, next) => {
+  try {
+    const response = await tourService.createGroupTourEnquiry(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateGroupTourEnquiry = async (req, res, next) => {
+  try {
+    const response = await tourService.updateGroupTourEnquiry(req.body || {});
+    if (!response) {
+      return res.status(404).json({ message: "Group tour enquiry not found" });
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createCustomTourEnquiry = async (req, res, next) => {
+  try {
+    const response = await customEnquiryService.createCustomTourEnquiry(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGuestDetailsHistory = (req, res, next) => {
+  try {
+    const response = tourService.getGuestTravelDetails({
+      guestId: req.query.guestId,
+      tab: req.query.tab,
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGuestLoyaltyPointHistory = (req, res, next) => {
+  try {
+    const response = tourService.getGuestLoyaltyHistory({
+      guestId: req.query.guestId,
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePrintStatus = async (req, res, next) => {
+  try {
+    const payload = req.body || {};
+    const response = await tourService.updateLoyaltyStatus({
+      userId: payload.userId || req.query.userId,
+      status: payload.status,
+      statusType: "print",
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changeDeliveryStatus = async (req, res, next) => {
+  try {
+    const payload = req.body || {};
+    const response = await tourService.updateLoyaltyStatus({
+      userId: payload.userId || req.query.userId,
+      status: payload.status,
+      statusType: "delivery",
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCommissionReport = (req, res, next) => {
+  try {
+    const response = tourService.getCommissionReport({
+      page: req.query.page,
+      perPage: req.query.perPage,
+      year: req.query.year,
+      month: req.query.month,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getWaariSelectReport = (req, res, next) => {
+  try {
+    const response = tourService.listWaariSelectReport({
+      page: req.query.page,
+      perPage: req.query.perPage,
+      year: req.query.year,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const downloadWaariSelectReport = (req, res, next) => {
+  try {
+    const data = tourService.downloadWaariSelectReport({
+      year: req.query.year,
+    });
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listGuestsDirectory = (req, res, next) => {
+  try {
+    const response = tourService.listGuestsDirectory({
+      page: req.query.page,
+      perPage: req.query.perPage,
+      filters: {
+        guestName: req.query.guestName,
+        cardName: req.query.cardName,
+        contact: req.query.contact,
+      },
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listAllGuestsDirectory = (req, res, next) => {
+  try {
+    const response = tourService.listAllGuestsDirectory({
+      page: req.query.page,
+      perPage: req.query.perPage,
+      filters: {
+        guestName: req.query.guestName,
+        cardName: req.query.cardName,
+        contact: req.query.contact,
+      },
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const searchAllGuestsDirectory = (req, res, next) => {
+  try {
+    const response = tourService.searchAllGuestsDirectory({
+      page: req.query.page,
+      perPage: req.query.perPage,
+      filters: {
+        guestName: req.query.guestName,
+        cardName: req.query.cardName,
+        contact: req.query.contact,
+      },
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getRefereeGuestCounts = (req, res, next) => {
+  try {
+    const response = tourService.getRefereeGuestCounts();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getRefereeGuestSales = (req, res, next) => {
+  try {
+    const response = tourService.getRefereeGuestSales();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllRefereeGuestCounts = (req, res, next) => {
+  try {
+    const response = tourService.getAllRefereeGuestCounts();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllRefereeGuestSales = (req, res, next) => {
+  try {
+    const response = tourService.getAllRefereeGuestSales();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listLoyaltyGuests = (req, res, next) => {
+  try {
+    const response = tourService.listLoyaltyGuests({
+      page: req.query.page,
+      perPage: req.query.perPageItem || req.query.perPage,
+      filters: {
+        name: req.query.name,
+        guestName: req.query.guestName,
+        cardName: req.query.cardName,
+        referralId: req.query.referralId,
+        refferalId: req.query.refferalId,
+      },
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listAllLoyaltyGuests = (req, res, next) => {
+  try {
+    const response = tourService.listAllLoyaltyGuests({
+      page: req.query.page,
+      perPage: req.query.perPageItem || req.query.perPage,
+      filters: {
+        name: req.query.name,
+        guestName: req.query.guestName,
+        cardName: req.query.cardName,
+        referralId: req.query.referralId,
+        refferalId: req.query.refferalId,
+      },
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listBillingBirthdayGuests = (req, res, next) => {
+  try {
+    const response = tourService.listBillingBirthdayGuests({
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getLoyaltyBookingMetric = (req, res, next) => {
+  try {
+    const response = tourService.getLoyaltyBookingMetric();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getWelcomeBookingMetric = (req, res, next) => {
+  try {
+    const response = tourService.getWelcomeBookingMetric();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getReferralRateMetric = (req, res, next) => {
+  try {
+    const response = tourService.getReferralRateMetric();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMoreBookingCounts = (req, res, next) => {
+  try {
+    const response = tourService.getMoreBookingCounts();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listTopSalesPartners = (req, res, next) => {
+  try {
+    const response = tourService.listTopSalesPartners();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMonthlyTargetGraphGt = (req, res, next) => {
+  try {
+    const response = tourService.getMonthlyTargetGraphGt();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGroupTourTargets = (req, res, next) => {
+  try {
+    const response = tourService.getGroupTargetSummary();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getEnquiryGraphGt = (req, res, next) => {
+  try {
+    const response = tourService.getGroupEnquiryGraphStats();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getEnquiriesGT = (req, res, next) => {
+  try {
+    const response = tourService.getGroupEnquiryTable();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMonthlyTargetGraphCt = (req, res, next) => {
+  try {
+    const response = tourService.getMonthlyTargetGraphCt();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomTourTargets = (req, res, next) => {
+  try {
+    const response = tourService.getCustomTargetSummary();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getEnquiryGraphCt = (req, res, next) => {
+  try {
+    const response = tourService.getCustomEnquiryGraphStats();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getEnquiriesCT = (req, res, next) => {
+  try {
+    const response = tourService.getCustomEnquiryTable();
     res.json(response);
   } catch (error) {
     next(error);
@@ -968,6 +1485,40 @@ const getGroupBillView = (req, res, next) => {
   }
 };
 
+const getGroupNewPaymentDetails = (req, res, next) => {
+  try {
+    const response = tourService.getGroupNewPaymentDetails({
+      groupPaymentDetailId: req.query.groupPaymentDetailId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateGroupPaymentStatus = async (req, res, next) => {
+  try {
+    const payload = await tourService.updateGroupPaymentStatus({
+      groupPaymentDetailId: req.query.groupPaymentDetailId,
+    });
+    res.json(payload);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGroupReceiptDetails = (req, res, next) => {
+  try {
+    const response = tourService.getGroupReceiptDetails({
+      groupPaymentDetailId: req.query.groupPaymentDetailId,
+      familyHeadGtId: req.query.familyHeadGtId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGroupTourCompletionStatus = (req, res, next) => {
   try {
     const response = tourService.getGroupTourCompletionStatus({
@@ -980,9 +1531,51 @@ const getGroupTourCompletionStatus = (req, res, next) => {
   }
 };
 
+const getCustomTourCompletionStatus = (req, res, next) => {
+  try {
+    const response = tourService.getCustomTourCompletionStatus({
+      enquiryCustomId: req.query.enquiryCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGroupEnquiryStatus = (req, res, next) => {
+  try {
+    const response = tourService.getGroupEnquiryStatus({
+      enquiryGroupId: req.query.enquiryGroupId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomEnquiryStatus = (req, res, next) => {
+  try {
+    const response = tourService.getCustomEnquiryStatus({
+      enquiryCustomId: req.query.enquiryCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGroupTotalCallCount = (req, res, next) => {
   try {
     const response = tourService.getGroupTotalCallCount(req.query.enquiryGroupId);
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomTotalCallCount = (req, res, next) => {
+  try {
+    const response = tourService.getCustomTotalCallCount(req.query.enquiryCustomId);
     res.json(response);
   } catch (error) {
     next(error);
@@ -1001,6 +1594,78 @@ const listCallStatusDropdown = (req, res, next) => {
 const listCallFollowHistory = (req, res, next) => {
   try {
     const response = tourService.listCallFollowHistory(req.query.enquiryGroupId);
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createGroupCallFollowUp = async (req, res, next) => {
+  try {
+    const response = await tourService.saveGroupCallFollowUp(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const cancelGroupEnquiry = async (req, res, next) => {
+  try {
+    const response = await tourService.cancelGroupEnquiry({
+      enquiryGroupId: req.body.enquiryGroupId || req.query.enquiryGroupId,
+      closureReason: req.body.closureReason || req.query.closureReason,
+      cancelledBy: req.body.cancelledBy || req.query.cancelledBy,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadGroupRefundProof = async (req, res, next) => {
+  try {
+    const response = await tourService.uploadGroupRefundProof(req.body || {});
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listAssignToUsers = async (req, res, next) => {
+  try {
+    const data = await tourService.listAssignToUsers();
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignUserToPlanEnquiryGt = async (req, res, next) => {
+  try {
+    const planEnqId = tourService.toPositiveInt(req.body.planEnqId || req.query.planEnqId, null);
+    if (!planEnqId) {
+      return res.status(400).json({ message: "planEnqId is required" });
+    }
+    const response = await tourService.assignUserToPlanEnquiryGt({ ...req.body, planEnqId });
+    if (!response) {
+      return res.status(404).json({ message: "Plan enquiry not found" });
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignUserToPlanEnquiryCt = async (req, res, next) => {
+  try {
+    const planEnqId = tourService.toPositiveInt(req.body.planEnqId || req.query.planEnqId, null);
+    if (!planEnqId) {
+      return res.status(400).json({ message: "planEnqId is required" });
+    }
+    const response = await tourService.assignUserToPlanEnquiryCt({ ...req.body, planEnqId });
+    if (!response) {
+      return res.status(404).json({ message: "Plan enquiry not found" });
+    }
     res.json(response);
   } catch (error) {
     next(error);
@@ -1276,10 +1941,32 @@ module.exports = {
   listAllGroupGuestDetails,
   listCustomGuestDetails,
   listAllCustomGuestDetails,
+  addGuestUser,
+  createGroupTourEnquiry,
+  updateGroupTourEnquiry,
+  createCustomTourEnquiry,
+  getGuestDetailsHistory,
+  getGuestLoyaltyPointHistory,
+  changePrintStatus,
+  changeDeliveryStatus,
+  getCommissionReport,
+  getWaariSelectReport,
+  downloadWaariSelectReport,
+  listGuestsDirectory,
+  listAllGuestsDirectory,
+  searchAllGuestsDirectory,
+  getRefereeGuestCounts,
+  getRefereeGuestSales,
+  getAllRefereeGuestCounts,
+  getAllRefereeGuestSales,
+  listLoyaltyGuests,
+  listAllLoyaltyGuests,
   listGroupTourDropdown,
   listPriorityList,
+  listHotelCategoryDropdown,
   listPrefixDropdown,
   listGuestReferenceDropdown,
+  searchGuestEmails,
   listEnquiryReferenceDropdown,
   listTourTypes,
   listCities,
@@ -1292,8 +1979,14 @@ module.exports = {
   listCountries,
   getCustomizedEnquiryDetails,
   listCustomizedPackages,
+  getCustomBillView,
+  listCustomNewPayments,
+  getCustomReceiptView,
+  updateCustomPaymentStatus,
   getGroupEnquiryDetails,
   listFamilyHeadData,
+  listCustomFamilyHeadData,
+  saveFamilyHeadDetails,
   getEnquiryFamilyHead,
   listFamilyHeadRoomShare,
   listRoomPriceDropdown,
@@ -1301,9 +1994,26 @@ module.exports = {
   listGroupGuestsForCancellation,
   getGroupCancellationProcessData,
   getGuestDetailsGt,
+  getGuestDetailsCt,
   listGuestDocuments,
   listPlanEnquiryUsersGt,
   listPlanEnquiryUsersCt,
+  getPlanEnquiryUsersDataGt,
+  getPlanEnquiryUsersDataCt,
+  listBillingBirthdayGuests,
+  getLoyaltyBookingMetric,
+  getWelcomeBookingMetric,
+  getReferralRateMetric,
+  getMoreBookingCounts,
+  listTopSalesPartners,
+  getMonthlyTargetGraphGt,
+  getGroupTourTargets,
+  getEnquiryGraphGt,
+  getEnquiriesGT,
+  getMonthlyTargetGraphCt,
+  getCustomTourTargets,
+  getEnquiryGraphCt,
+  getEnquiriesCT,
   listFutureEnquiryAll,
   listFutureEnquirySelf,
   listPendingGroupPayments,
@@ -1322,10 +2032,23 @@ module.exports = {
   getPaymentCalculation,
   getGroupPaymentBill,
   getGroupBillView,
+  getGroupNewPaymentDetails,
+  updateGroupPaymentStatus,
+  getGroupReceiptDetails,
   getGroupTourCompletionStatus,
+  getCustomTourCompletionStatus,
+  getGroupEnquiryStatus,
+  getCustomEnquiryStatus,
   getGroupTotalCallCount,
+  getCustomTotalCallCount,
   listCallStatusDropdown,
   listCallFollowHistory,
+  createGroupCallFollowUp,
+  cancelGroupEnquiry,
+  uploadGroupRefundProof,
+  listAssignToUsers,
+  assignUserToPlanEnquiryGt,
+  assignUserToPlanEnquiryCt,
   createGroupTour,
   addGroupTourInfo,
   addSkeletonDetails,

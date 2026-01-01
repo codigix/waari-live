@@ -8,6 +8,7 @@ const kitchens = [];
 const departureTypes = [];
 const countries = [];
 const priorities = [];
+const hotelCategories = [];
 const namePrefixes = [];
 const enquiryReferences = [];
 const guestReferenceDropdown = [];
@@ -18,6 +19,7 @@ const customTours = [];
 const states = [];
 const customEnquiryDetailTemplate = {
   enquiryCustomId: null,
+  enquiryDetailCustomId: null,
   uniqueEnqueryId: "",
   groupName: "",
   contactName: "",
@@ -95,6 +97,16 @@ const groupTourDetailOverrides = {};
 const tailorMadeDetailOverrides = {};
 const groupTourGuestTemplate = [];
 const groupTourGuests = {};
+const manualGuestDirectory = [];
+const loyaltyStatusOverrides = {};
+const groupFamilyHeadOverrides = {};
+const groupPaymentOverrides = {};
+const customPaymentOverrides = {};
+const groupCallFollowUps = {};
+const groupCancellationOverrides = {};
+const groupEnquiryCancellationLogs = {};
+const groupPlanEnquiryAssignments = {};
+const customPlanEnquiryAssignments = {};
 
 module.exports = {
   tourTypes,
@@ -107,6 +119,7 @@ module.exports = {
   departureTypes,
   countries,
   priorities,
+  hotelCategories,
   namePrefixes,
   enquiryReferences,
   guestReferenceDropdown,
@@ -134,4 +147,14 @@ module.exports = {
   tailorMadeDetailOverrides,
   groupTourGuestTemplate,
   groupTourGuests,
+  manualGuestDirectory,
+  loyaltyStatusOverrides,
+  groupFamilyHeadOverrides,
+  groupPaymentOverrides,
+  customPaymentOverrides,
+  groupCallFollowUps,
+  groupCancellationOverrides,
+  groupEnquiryCancellationLogs,
+  groupPlanEnquiryAssignments,
+  customPlanEnquiryAssignments,
 };

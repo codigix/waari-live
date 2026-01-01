@@ -16,4 +16,10 @@ router.post(
   uploadController.uploadDocument
 );
 
+router.post(
+  "/package-upload",
+  uploadMiddleware.single("pdf"),
+  uploadController.uploadPackageDocument
+);
+
 module.exports = router;
