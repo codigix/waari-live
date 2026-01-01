@@ -38,6 +38,8 @@ const {
   groupFamilyHeadOverrides,
   groupPaymentOverrides,
   customPaymentOverrides,
+  customCallFollowUps,
+  customVoucherRecords,
   customEnquiryDetailTemplate,
   customEnquiryDetails,
   customPackageTemplate,
@@ -61,6 +63,15 @@ const toPositiveInt = (value, fallback) => {
 
 const normalize = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 const trimTextValue = (value) => (typeof value === "string" ? value.trim() : "");
+const slugify = (value, fallback = "waari") => {
+  const normalized = (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || fallback;
+};
 
 const normalizeCategory = (value, fallback = "GROUP") => {
   const base = value === undefined || value === null || value === "" ? fallback : value;
@@ -5044,6 +5055,12 @@ const CARD_TYPE_OPTIONS = [
   { cardTypeId: 1, cardTypeName: "Debit Card" },
   { cardTypeId: 2, cardTypeName: "Credit Card" },
 ];
+const DEFAULT_VOUCHER_TYPES = [
+  { voucherTypeId: 1, voucherName: "Flight Tickets" },
+  { voucherTypeId: 2, voucherName: "Hotel Confirmation" },
+  { voucherTypeId: 3, voucherName: "Transport Voucher" },
+  { voucherTypeId: 4, voucherName: "Sightseeing Itinerary" },
+];
 const DOCUMENT_BASE_URL = "https://files.waari.travel/documents";
 const COMPANY_PROFILE = {
   companyName: "Musmade Hospitality Pvt. Ltd.",
@@ -5078,6 +5095,20 @@ const resolveCardTypeMeta = (typeId) => {
     return fallback;
   }
   return CARD_TYPE_OPTIONS.find((option) => Number(option.cardTypeId) === id) || fallback;
+};
+
+const resolveVoucherTypeMeta = (voucherTypeId) => {
+  const id = toPositiveInt(voucherTypeId, null);
+  return DEFAULT_VOUCHER_TYPES.find((option) => Number(option.voucherTypeId) === id) || DEFAULT_VOUCHER_TYPES[0];
+};
+
+const listVoucherTypeOptions = () => {
+  const data = DEFAULT_VOUCHER_TYPES.map((entry) => ({ ...entry }));
+  return {
+    total: data.length,
+    data,
+    message: data.length ? "Voucher types fetched successfully" : "No voucher types available",
+  };
 };
 
 const DEFAULT_CANCELLATION_TEMPLATES = [
@@ -6499,6 +6530,30 @@ const getStoredCallFollowUps = (enquiryGroupId) => {
       currentFollowUpTime: entry.currentFollowUpTime || "10:00",
       nextFollowUpDate: entry.nextFollowUpDate || formatDateOnly(startOfToday()),
       nextFollowUpTime: entry.nextFollowUpTime || "10:00",
+    };
+  });
+};
+
+const getStoredCustomCallFollowUps = (enquiryCustomId) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return [];
+  }
+  const stored = Array.isArray(customCallFollowUps[id]) ? customCallFollowUps[id] : [];
+  return stored.map((entry, index) => {
+    const statusMeta = resolveCallStatusMeta(entry.callStatusId);
+    return {
+      callFollowUpId: entry.callFollowUpId || Number(`${id}${index + 51}`),
+      enquiryCustomId: id,
+      callStatusId: statusMeta.callStatusId,
+      callStatusName: entry.callStatusName || statusMeta.callStatusName,
+      callSummary: entry.callSummary || `Discussed ${statusMeta.callStatusName.toLowerCase()}`,
+      currentFollowUpDate: entry.currentFollowUpDate || formatDateOnly(startOfToday()),
+      currentFollowUpTime: entry.currentFollowUpTime || "10:00",
+      nextFollowUpDate: entry.nextFollowUpDate || formatDateOnly(startOfToday()),
+      nextFollowUpTime: entry.nextFollowUpTime || "10:00",
+      assignedUserId: entry.assignedUserId || DEFAULT_FOLLOW_UP_USER_ID,
+      assignedUserName: entry.assignedUserName || "Waari Custom Team",
     };
   });
 };
