@@ -3,6 +3,8 @@ const userController = require("../controllers/userController");
 
 const router = Router();
 
+router.post("/user-login", userController.loginUser);
+router.post("/login", userController.loginUser);
 router.get("/lists-user", userController.listUsers);
 router.get("/delete-user", userController.deleteUser);
 router.get("/view-users-data", userController.viewUser);

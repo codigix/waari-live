@@ -22,4 +22,12 @@ module.exports = {
     name: process.env.DB_NAME,
     connectionLimit: toInt(process.env.DB_CONNECTION_LIMIT, 10),
   },
+  auth: {
+    jwtSecret: process.env.JWT_SECRET || "change-me",
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
+  },
+  admin: {
+    email: process.env.DEFAULT_ADMIN_EMAIL || "codigixsuperadmin@gmail.com",
+    password: process.env.DEFAULT_ADMIN_PASSWORD || "123456",
+  },
 };

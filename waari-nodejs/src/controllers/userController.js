@@ -1,8 +1,64 @@
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const config = require("../../config");
 const userService = require("../services/userService");
 
 const toPositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
   return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
+};
+
+const isBcryptHash = (value) => typeof value === "string" && value.startsWith("$2");
+
+const verifyPassword = async (input, stored) => {
+  if (!stored) {
+    return false;
+  }
+  if (isBcryptHash(stored)) {
+    return bcrypt.compare(String(input), stored);
+  }
+  return String(input) === String(stored);
+};
+
+const formatAuthUser = (user) => ({
+  userId: user.userId,
+  userName: user.userName || `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+  email: user.email,
+  roleId: user.roleId,
+  roleName: user.roleName || "",
+  contact: user.contact || "",
+  status: user.status ? 1 : 0,
+});
+
+const loginUser = async (req, res, next) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ message: "email and password are required" });
+    }
+    const user = await userService.getUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    const passwordValid = await verifyPassword(password, user.password);
+    if (!passwordValid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    if (!user.status) {
+      return res.status(403).json({ message: "User disabled" });
+    }
+    const payload = {
+      userId: user.userId,
+      roleId: user.roleId,
+      email: user.email,
+    };
+    const token = jwt.sign(payload, config.auth.jwtSecret, {
+      expiresIn: config.auth.jwtExpiresIn,
+    });
+    res.json({ message: "Login successful", token, user: formatAuthUser(user) });
+  } catch (error) {
+    next(error);
+  }
 };
 
 const listUsers = async (req, res, next) => {
@@ -153,6 +209,7 @@ const updateUser = async (req, res, next) => {
 };
 
 module.exports = {
+  loginUser,
   listUsers,
   deleteUser,
   updateUserStatus,

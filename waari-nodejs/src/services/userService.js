@@ -19,6 +19,14 @@ const toNullableText = (value) => {
   return text.length ? text : null;
 };
 
+const normalizeEmail = (value) => {
+  if (!value) {
+    return null;
+  }
+  const email = String(value).trim().toLowerCase();
+  return email.length ? email : null;
+};
+
 const formatUserRow = (row) => {
   const status = sanitizeBoolean(row.status);
   return {
@@ -162,6 +170,25 @@ const getUserById = async (userId) => {
   return { ...row, status: sanitizeBoolean(row.status) };
 };
 
+const getUserByEmail = async (email) => {
+  const normalized = normalizeEmail(email);
+  if (!normalized) {
+    return null;
+  }
+  const [[row]] = await pool.query(
+    `SELECT u.*, r.roleName
+       FROM users u
+       LEFT JOIN roles r ON r.roleId = u.roleId
+      WHERE LOWER(u.email) = ?
+      LIMIT 1`,
+    [normalized]
+  );
+  if (!row) {
+    return null;
+  }
+  return { ...row, status: sanitizeBoolean(row.status) };
+};
+
 const updateUser = async (payload) => {
   const userId = toNullableInt(payload.userId);
   if (!userId) {
@@ -231,5 +258,6 @@ module.exports = {
   updateUserStatus,
   createUser,
   getUserById,
+  getUserByEmail,
   updateUser,
 };
