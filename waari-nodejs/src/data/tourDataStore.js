@@ -104,6 +104,8 @@ const groupPaymentOverrides = {};
 const customPaymentOverrides = {};
 const customCallFollowUps = {};
 const customVoucherRecords = {};
+const customCancellationOverrides = {};
+const customEnquiryCancellationLogs = {};
 const groupCallFollowUps = {};
 const groupCancellationOverrides = {};
 const groupEnquiryCancellationLogs = {};
@@ -156,6 +158,8 @@ module.exports = {
   customPaymentOverrides,
   customCallFollowUps,
   customVoucherRecords,
+  customCancellationOverrides,
+  customEnquiryCancellationLogs,
   groupCallFollowUps,
   groupCancellationOverrides,
   groupEnquiryCancellationLogs,

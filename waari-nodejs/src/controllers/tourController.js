@@ -425,6 +425,27 @@ const listTourTypes = (req, res, next) => {
   }
 };
 
+const addTourType = (req, res, next) => {
+  try {
+    const response = tourService.addTourType(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTourType = (req, res, next) => {
+  try {
+    const response = tourService.getTourType(req.query.tourTypeId);
+    if (!response.data) {
+      return res.status(response.message === "tourTypeId is required" ? 400 : 404).json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listCities = (req, res, next) => {
   try {
     const data = tourService.listCities();
@@ -725,6 +746,18 @@ const listFamilyHeadRoomShare = (req, res, next) => {
   }
 };
 
+const listCustomFamilyHeadRoomShare = (req, res, next) => {
+  try {
+    const response = tourService.listCustomFamilyHeadRoomShare({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listRoomPriceDropdown = (req, res, next) => {
   try {
     const response = tourService.listRoomPriceOptions(req.query.enquiryGroupId);
@@ -745,6 +778,37 @@ const listTravelModeDropdown = (req, res, next) => {
   }
 };
 
+const listVoucherTypes = (req, res, next) => {
+  try {
+    const response = tourService.listVoucherTypeOptions();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listCustomVouchers = (req, res, next) => {
+  try {
+    const response = tourService.listCustomVouchers({
+      enquiryCustomId: req.query.enquiryCustomId,
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadCustomVouchers = async (req, res, next) => {
+  try {
+    const response = await tourService.uploadCustomVouchers(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listGroupGuestsForCancellation = (req, res, next) => {
   try {
     const response = tourService.listGroupGuestsForCancellation({
@@ -757,11 +821,35 @@ const listGroupGuestsForCancellation = (req, res, next) => {
   }
 };
 
+const listCustomGuestsForCancellation = (req, res, next) => {
+  try {
+    const response = tourService.listCustomGuestsForCancellation({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGroupCancellationProcessData = (req, res, next) => {
   try {
     const response = tourService.getGroupCancellationProcessData({
       enquiryGroupId: req.query.enquiryGroupId,
       familyHeadGtId: req.query.familyHeadGtId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomCancellationProcessData = (req, res, next) => {
+  try {
+    const response = tourService.getCustomCancellationProcessData({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
     });
     res.json(response);
   } catch (error) {
@@ -798,6 +886,18 @@ const listGuestDocuments = (req, res, next) => {
     const response = tourService.listGuestDocumentRecords({
       enquiryGroupId: req.query.enquiryGroupId,
       familyHeadGtId: req.query.familyHeadGtId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listCustomGuestDocuments = (req, res, next) => {
+  try {
+    const response = tourService.listCustomGuestDocumentRecords({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
     });
     res.json(response);
   } catch (error) {
@@ -1124,6 +1224,24 @@ const listAllLoyaltyGuests = (req, res, next) => {
   }
 };
 
+const getGroupTourCount = (req, res, next) => {
+  try {
+    const response = tourService.getGroupTourCountMetric();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGuestCountMetric = (req, res, next) => {
+  try {
+    const response = tourService.getGuestCountMetric();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listBillingBirthdayGuests = (req, res, next) => {
   try {
     const response = tourService.listBillingBirthdayGuests({
@@ -1166,6 +1284,232 @@ const getReferralRateMetric = (req, res, next) => {
 const getMoreBookingCounts = (req, res, next) => {
   try {
     const response = tourService.getMoreBookingCounts();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listSalesProfit = (req, res, next) => {
+  try {
+    const response = tourService.listSalesProfitSummary({
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getBookingSalesAmountGraphCt = (req, res, next) => {
+  try {
+    const response = tourService.getBookingSalesAmountGraphCt();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomProfitMetrics = (req, res, next) => {
+  try {
+    const response = tourService.getCustomProfitMetrics();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTotalBillingSummary = (req, res, next) => {
+  try {
+    const response = tourService.getTotalBillingSummary();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTotalBillApprovedSummary = (req, res, next) => {
+  try {
+    const response = tourService.getTotalBillApprovedSummary();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTotalBillPendingSummary = (req, res, next) => {
+  try {
+    const response = tourService.getTotalBillPendingSummary();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listContactUsEntries = (req, res, next) => {
+  try {
+    const response = tourService.listWebsiteContactEntries({
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listHomePageJourneys = (req, res, next) => {
+  try {
+    const response = tourService.listHomePageJourneys();
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateHomePageJourneys = (req, res, next) => {
+  try {
+    const response = tourService.updateHomePageJourneys(req.body || {});
+    if (!response.data) {
+      return res.status(400).json(response);
+    }
+    res.status(200).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listTopFiveGroupJourneys = (req, res, next) => {
+  try {
+    const response = tourService.listTopFiveGroupJourneys({
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTopFiveGroupJourney = (req, res, next) => {
+  try {
+    const response = tourService.getTopFiveGroupJourney(req.query.topFiveGroupJourneyId);
+    if (!response.data) {
+      return res
+        .status(response.message === "topFiveGroupJourneyId is required" ? 400 : 404)
+        .json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listWebsiteReviews = (req, res, next) => {
+  try {
+    const response = tourService.listWebsiteReviews({
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addWebsiteReview = (req, res, next) => {
+  try {
+    const response = tourService.addWebsiteReview(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getWebsiteReview = (req, res, next) => {
+  try {
+    const response = tourService.getWebsiteReview(req.query.reviewId);
+    if (!response.data) {
+      return res.status(response.message === "reviewId is required" ? 400 : 404).json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateWebsiteReview = (req, res, next) => {
+  try {
+    const response = tourService.updateWebsiteReview(req.body || {});
+    if (!response.data) {
+      return res.status(response.message === "reviewId is required" ? 400 : 404).json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listOfficeDetails = (req, res, next) => {
+  try {
+    const response = tourService.listOfficeDetails({
+      page: req.query.page,
+      perPage: req.query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getOfficeDetail = (req, res, next) => {
+  try {
+    const officedetailId = tourService.toPositiveInt(req.query.officedetailId, null);
+    if (!officedetailId) {
+      return res.status(400).json({ message: "officedetailId is required" });
+    }
+    const response = tourService.getOfficeDetail(officedetailId);
+    if (!response.data) {
+      return res.status(404).json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addOfficeDetail = (req, res, next) => {
+  try {
+    const response = tourService.addOfficeDetail(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateOfficeDetail = (req, res, next) => {
+  try {
+    const response = tourService.updateOfficeDetail(req.body || {});
+    if (!response.data) {
+      return res.status(response.message === "officedetailId is required" ? 400 : 404).json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteOfficeDetail = (req, res, next) => {
+  try {
+    const officedetailId = tourService.toPositiveInt(req.query.officedetailId, null);
+    if (!officedetailId) {
+      return res.status(400).json({ message: "officedetailId is required" });
+    }
+    const response = tourService.deleteOfficeDetail(officedetailId);
+    if (!response.data) {
+      return res.status(404).json(response);
+    }
     res.json(response);
   } catch (error) {
     next(error);
@@ -1401,11 +1745,36 @@ const getTourCostGt = (req, res, next) => {
   }
 };
 
+const getTourCostCt = (req, res, next) => {
+  try {
+    const response = tourService.getCustomTourCostDetails({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+      guestId: req.query.guestId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getCouponUsage = (req, res, next) => {
   try {
     const response = tourService.getGuestCouponUsage({
       guestId: req.query.guestId,
       enquiryGroupId: req.query.enquiryGroupId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCouponUsageCt = (req, res, next) => {
+  try {
+    const response = tourService.getCustomGuestCouponUsage({
+      guestId: req.query.guestId,
+      enquiryCustomId: req.query.enquiryCustomId,
     });
     res.json(response);
   } catch (error) {
@@ -1461,11 +1830,35 @@ const getPaymentCalculation = (req, res, next) => {
   }
 };
 
+const getPaymentCalculationCt = (req, res, next) => {
+  try {
+    const response = tourService.getCustomPaymentCalculationDetails({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGroupPaymentBill = (req, res, next) => {
   try {
     const response = tourService.getGroupPaymentDetails({
       enquiryGroupId: req.query.enquiryGroupId,
       familyHeadGtId: req.query.familyHeadGtId,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomPaymentBill = (req, res, next) => {
+  try {
+    const response = tourService.getCustomPaymentDetails({
+      enquiryCustomId: req.query.enquiryCustomId,
+      enquiryDetailCustomId: req.query.enquiryDetailCustomId,
     });
     res.json(response);
   } catch (error) {
@@ -1499,7 +1892,9 @@ const getGroupNewPaymentDetails = (req, res, next) => {
 const updateGroupPaymentStatus = async (req, res, next) => {
   try {
     const payload = await tourService.updateGroupPaymentStatus({
-      groupPaymentDetailId: req.query.groupPaymentDetailId,
+      groupPaymentDetailId: req.query.groupPaymentDetailId || req.body.groupPaymentDetailId,
+      enquiryGroupId: req.query.enquiryGroupId || req.body.enquiryGroupId,
+      familyHeadGtId: req.query.familyHeadGtId || req.body.familyHeadGtId,
     });
     res.json(payload);
   } catch (error) {
@@ -1600,9 +1995,27 @@ const listCallFollowHistory = (req, res, next) => {
   }
 };
 
+const listCustomCallFollowHistory = (req, res, next) => {
+  try {
+    const response = tourService.listCustomCallFollowHistory(req.query.enquiryCustomId);
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createGroupCallFollowUp = async (req, res, next) => {
   try {
     const response = await tourService.saveGroupCallFollowUp(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createCustomCallFollowUp = async (req, res, next) => {
+  try {
+    const response = await tourService.saveCustomCallFollowUp(req.body || {});
     res.status(201).json(response);
   } catch (error) {
     next(error);
@@ -1625,6 +2038,15 @@ const cancelGroupEnquiry = async (req, res, next) => {
 const uploadGroupRefundProof = async (req, res, next) => {
   try {
     const response = await tourService.uploadGroupRefundProof(req.body || {});
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadCustomRefundProof = async (req, res, next) => {
+  try {
+    const response = await tourService.uploadCustomRefundProof(req.body || {});
     res.json(response);
   } catch (error) {
     next(error);
@@ -1969,6 +2391,8 @@ module.exports = {
   searchGuestEmails,
   listEnquiryReferenceDropdown,
   listTourTypes,
+  addTourType,
+  getTourType,
   listCities,
   listDestinations,
   listVehicles,
@@ -1989,22 +2413,51 @@ module.exports = {
   saveFamilyHeadDetails,
   getEnquiryFamilyHead,
   listFamilyHeadRoomShare,
+  listCustomFamilyHeadRoomShare,
   listRoomPriceDropdown,
   listTravelModeDropdown,
+  listVoucherTypes,
+  listCustomVouchers,
+  uploadCustomVouchers,
   listGroupGuestsForCancellation,
+  listCustomGuestsForCancellation,
   getGroupCancellationProcessData,
+  getCustomCancellationProcessData,
   getGuestDetailsGt,
   getGuestDetailsCt,
   listGuestDocuments,
+  listCustomGuestDocuments,
   listPlanEnquiryUsersGt,
   listPlanEnquiryUsersCt,
   getPlanEnquiryUsersDataGt,
   getPlanEnquiryUsersDataCt,
   listBillingBirthdayGuests,
+  getGroupTourCount,
+  getGuestCountMetric,
   getLoyaltyBookingMetric,
   getWelcomeBookingMetric,
   getReferralRateMetric,
   getMoreBookingCounts,
+  listSalesProfit,
+  getBookingSalesAmountGraphCt,
+  getCustomProfitMetrics,
+  getTotalBillingSummary,
+  getTotalBillApprovedSummary,
+  getTotalBillPendingSummary,
+  listContactUsEntries,
+  listHomePageJourneys,
+  updateHomePageJourneys,
+  listTopFiveGroupJourneys,
+  getTopFiveGroupJourney,
+  listWebsiteReviews,
+  addWebsiteReview,
+  getWebsiteReview,
+  updateWebsiteReview,
+  listOfficeDetails,
+  getOfficeDetail,
+  addOfficeDetail,
+  updateOfficeDetail,
+  deleteOfficeDetail,
   listTopSalesPartners,
   getMonthlyTargetGraphGt,
   getGroupTourTargets,
@@ -2024,13 +2477,17 @@ module.exports = {
   listLostCustomEnquiries,
   listAllLostCustomEnquiries,
   getTourCostGt,
+  getTourCostCt,
   getCouponUsage,
+  getCouponUsageCt,
   checkGuestExists,
   listPaymentModeOptions,
   listOnlineTypeOptions,
   listCardTypeOptions,
   getPaymentCalculation,
+  getPaymentCalculationCt,
   getGroupPaymentBill,
+  getCustomPaymentBill,
   getGroupBillView,
   getGroupNewPaymentDetails,
   updateGroupPaymentStatus,
@@ -2043,9 +2500,12 @@ module.exports = {
   getCustomTotalCallCount,
   listCallStatusDropdown,
   listCallFollowHistory,
+  listCustomCallFollowHistory,
   createGroupCallFollowUp,
+  createCustomCallFollowUp,
   cancelGroupEnquiry,
   uploadGroupRefundProof,
+  uploadCustomRefundProof,
   listAssignToUsers,
   assignUserToPlanEnquiryGt,
   assignUserToPlanEnquiryCt,

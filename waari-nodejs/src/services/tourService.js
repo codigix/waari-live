@@ -44,6 +44,8 @@ const {
   customEnquiryDetails,
   customPackageTemplate,
   customEnquiryPackages,
+  customCancellationOverrides,
+  customEnquiryCancellationLogs,
   groupCallFollowUps,
   groupCancellationOverrides,
   groupEnquiryCancellationLogs,
@@ -190,6 +192,289 @@ const DEFAULT_BG_IMAGE = "https://images.pexels.com/photos/346885/pexels-photo-3
 const DEFAULT_WEBSITE_BANNER = "https://images.pexels.com/photos/237272/pexels-photo-237272.jpeg?auto=compress&cs=tinysrgb&w=600";
 const DEFAULT_WEBSITE_DESCRIPTION =
   "<p>Plan immersive journeys with Waari's curated departures and concierge support.</p>";
+
+const WEBSITE_CONTACT_ENTRIES = [
+  {
+    contactUsId: 101,
+    fullName: "Aarav Kulkarni",
+    email: "aarav.kulkarni@waari.travel",
+    phoneNo: "9823456781",
+    Date: "2025-01-03",
+    city: "Pune",
+    message: "Planning a Ladakh road trip for six friends in April.",
+    source: "Website",
+    status: "NEW",
+  },
+  {
+    contactUsId: 102,
+    fullName: "Riya Patankar",
+    email: "riya.patankar@gmail.com",
+    phoneNo: "9890123472",
+    Date: "2025-01-05",
+    city: "Mumbai",
+    message: "Need honeymoon suggestions with beach and adventure mix.",
+    source: "Landing Page",
+    status: "FOLLOW_UP",
+  },
+  {
+    contactUsId: 103,
+    fullName: "Siddharth Vernekar",
+    email: "siddharth.v@waari.travel",
+    phoneNo: "9812339076",
+    Date: "2025-01-06",
+    city: "Bengaluru",
+    message: "Corporate outing for 40 members to Dubai in March.",
+    source: "Referral",
+    status: "QUALIFIED",
+  },
+  {
+    contactUsId: 104,
+    fullName: "Meera Deshpande",
+    email: "meera.deshpande@yahoo.com",
+    phoneNo: "9822100345",
+    Date: "2025-01-08",
+    city: "Nashik",
+    message: "Family pilgrimage with elders requiring assistance.",
+    source: "Website",
+    status: "NEW",
+  },
+  {
+    contactUsId: 105,
+    fullName: "Imran Shaikh",
+    email: "imran.shaikh@live.com",
+    phoneNo: "9833011223",
+    Date: "2025-01-10",
+    city: "Hyderabad",
+    message: "Backpacking idea for Scandinavian countries in May.",
+    source: "WhatsApp CTA",
+    status: "FOLLOW_UP",
+  },
+];
+
+const HOME_PAGE_JOURNEY_LAYOUT = [
+  {
+    selectionId: 1,
+    groupTourId: 901,
+    tourName: "Signature Europe Explorer",
+    heroImageUrl:
+      "https://images.pexels.com/photos/221493/pexels-photo-221493.jpeg?auto=compress&cs=tinysrgb&w=1260",
+    badge: "Popular",
+    highlight: "9N/10D Paris · Interlaken · Rome",
+    priceFrom: 139999,
+    duration: "10 Days",
+    sequence: 1,
+  },
+  {
+    selectionId: 2,
+    groupTourId: 902,
+    tourName: "Himalayan Odyssey",
+    heroImageUrl:
+      "https://images.pexels.com/photos/551816/pexels-photo-551816.jpeg?auto=compress&cs=tinysrgb&w=1260",
+    badge: "Trending",
+    highlight: "7N/8D Srinagar · Kargil · Leh",
+    priceFrom: 82999,
+    duration: "8 Days",
+    sequence: 2,
+  },
+  {
+    selectionId: 3,
+    groupTourId: 903,
+    tourName: "Bali Beyond Beaches",
+    heroImageUrl:
+      "https://images.pexels.com/photos/916620/pexels-photo-916620.jpeg?auto=compress&cs=tinysrgb&w=1260",
+    badge: "Seasonal",
+    highlight: "5N/6D Ubud · Seminyak · Nusa Penida",
+    priceFrom: 68999,
+    duration: "6 Days",
+    sequence: 3,
+  },
+  {
+    selectionId: 4,
+    groupTourId: 904,
+    tourName: "South African Panorama",
+    heroImageUrl:
+      "https://images.pexels.com/photos/1369210/pexels-photo-1369210.jpeg?auto=compress&cs=tinysrgb&w=1260",
+    badge: "Limited",
+    highlight: "8N/9D Cape Town · Garden Route · Safari",
+    priceFrom: 189999,
+    duration: "9 Days",
+    sequence: 4,
+  },
+];
+
+const TOP_FIVE_GROUP_JOURNEY_LAYOUT = [
+  {
+    topFiveGroupJourneyId: 1,
+    title: "Snow-Capped Europe",
+    subTitle: "Swiss and Austrian Alps",
+    topFiveGroupJourneyImageUrl:
+      "https://images.pexels.com/photos/450441/pexels-photo-450441.jpeg?auto=compress&cs=tinysrgb&w=600",
+    topFiveGroupJourneyPathUrl: "https://waari.travel/journeys/snow-capped-europe",
+    sequence: 1,
+  },
+  {
+    topFiveGroupJourneyId: 2,
+    title: "Mediterranean Cruise",
+    subTitle: "Spain · France · Italy",
+    topFiveGroupJourneyImageUrl:
+      "https://images.pexels.com/photos/327337/pexels-photo-327337.jpeg?auto=compress&cs=tinysrgb&w=600",
+    topFiveGroupJourneyPathUrl: "https://waari.travel/journeys/mediterranean-cruise",
+    sequence: 2,
+  },
+  {
+    topFiveGroupJourneyId: 3,
+    title: "Canadian Rockies",
+    subTitle: "Banff and Jasper",
+    topFiveGroupJourneyImageUrl:
+      "https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg?auto=compress&cs=tinysrgb&w=600",
+    topFiveGroupJourneyPathUrl: "https://waari.travel/journeys/canadian-rockies",
+    sequence: 3,
+  },
+  {
+    topFiveGroupJourneyId: 4,
+    title: "Jordan Explorer",
+    subTitle: "Amman · Petra · Wadi Rum",
+    topFiveGroupJourneyImageUrl:
+      "https://images.pexels.com/photos/532826/pexels-photo-532826.jpeg?auto=compress&cs=tinysrgb&w=600",
+    topFiveGroupJourneyPathUrl: "https://waari.travel/journeys/jordan-explorer",
+    sequence: 4,
+  },
+  {
+    topFiveGroupJourneyId: 5,
+    title: "Festive USA East Coast",
+    subTitle: "New York · DC · Niagara",
+    topFiveGroupJourneyImageUrl:
+      "https://images.pexels.com/photos/466685/pexels-photo-466685.jpeg?auto=compress&cs=tinysrgb&w=600",
+    topFiveGroupJourneyPathUrl: "https://waari.travel/journeys/usa-east-coast",
+    sequence: 5,
+  },
+];
+
+const WEBSITE_REVIEW_ENTRIES = [
+  {
+    reviewId: 401,
+    customerName: "Isha Bhadane",
+    tourCode: "GT-209",
+    type: 1,
+    tourName: "Highlights of Turkey",
+    tourDate: "2024-12-05",
+    title: "Seamless and scenic",
+    rating: 4.8,
+    imageUrl: "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=200",
+    status: "PUBLISHED",
+    createdAt: "2025-01-04",
+  },
+  {
+    reviewId: 402,
+    customerName: "Devendra Patil",
+    tourCode: "GT-311",
+    type: 2,
+    tourName: "Kenyan Safari Custom",
+    tourDate: "2024-11-18",
+    title: "Private game drives were worth it",
+    rating: 4.6,
+    imageUrl: "https://images.pexels.com/photos/240040/pexels-photo-240040.jpeg?auto=compress&cs=tinysrgb&w=200",
+    status: "PUBLISHED",
+    createdAt: "2025-01-06",
+  },
+  {
+    reviewId: 403,
+    customerName: "Nidhi Kamble",
+    tourCode: "GT-118",
+    type: 1,
+    tourName: "Enchanting Scandinavia",
+    tourDate: "2024-10-02",
+    title: "Auroras delivered!",
+    rating: 5,
+    imageUrl: "https://images.pexels.com/photos/1672813/pexels-photo-1672813.jpeg?auto=compress&cs=tinysrgb&w=200",
+    status: "PUBLISHED",
+    createdAt: "2024-12-20",
+  },
+  {
+    reviewId: 404,
+    customerName: "Samir Choksi",
+    tourCode: "GT-412",
+    type: 2,
+    tourName: "Australia Signature",
+    tourDate: "2024-09-12",
+    title: "Kids loved Gold Coast",
+    rating: 4.5,
+    imageUrl: "https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=200",
+    status: "PUBLISHED",
+    createdAt: "2024-11-29",
+  },
+  {
+    reviewId: 405,
+    customerName: "Carlos Lopes",
+    tourCode: "GT-510",
+    type: 1,
+    tourName: "Patagonia Trails",
+    tourDate: "2024-08-22",
+    title: "Challenging but rewarding",
+    rating: 4.9,
+    imageUrl: "https://images.pexels.com/photos/91224/pexels-photo-91224.jpeg?auto=compress&cs=tinysrgb&w=200",
+    status: "PUBLISHED",
+    createdAt: "2024-11-10",
+  },
+];
+
+let websiteReviewSequence = WEBSITE_REVIEW_ENTRIES.reduce(
+  (max, entry) => Math.max(max, Number(entry && entry.reviewId) || 0),
+  0
+);
+
+let tourTypeSequence = tourTypes.reduce(
+  (max, entry) => Math.max(max, Number(entry && entry.tourTypeId) || 0),
+  tourTypes.length
+);
+
+const OFFICE_DETAIL_ENTRIES = [
+  {
+    officedetailId: 1,
+    cityName: "Pune",
+    address: "5th Floor, Seasons Business Square, Magarpatta Road",
+    officeTiming: "Mon-Sat 10:00 AM - 7:00 PM",
+    contactNo: "02071234567",
+    email: "pune.office@waari.travel",
+  },
+  {
+    officedetailId: 2,
+    cityName: "Mumbai",
+    address: "Unit 803, Nariman Point Corporate Park, Marine Drive",
+    officeTiming: "Mon-Sat 9:30 AM - 6:30 PM",
+    contactNo: "02288997744",
+    email: "mumbai.office@waari.travel",
+  },
+  {
+    officedetailId: 3,
+    cityName: "Bengaluru",
+    address: "11th Cross, Indiranagar 2nd Stage",
+    officeTiming: "Mon-Sat 10:00 AM - 6:00 PM",
+    contactNo: "08061234567",
+    email: "blr.office@waari.travel",
+  },
+  {
+    officedetailId: 4,
+    cityName: "Hyderabad",
+    address: "Plot 64, Kavuri Hills, Madhapur",
+    officeTiming: "Mon-Sat 10:30 AM - 7:30 PM",
+    contactNo: "04066778899",
+    email: "hyd.office@waari.travel",
+  },
+  {
+    officedetailId: 5,
+    cityName: "Ahmedabad",
+    address: "405 Titanium Square, Thaltej Cross Road",
+    officeTiming: "Mon-Sat 10:00 AM - 6:30 PM",
+    contactNo: "07966554433",
+    email: "ahm.office@waari.travel",
+  },
+];
+
+let officeDetailSequence = OFFICE_DETAIL_ENTRIES.reduce(
+  (max, entry) => Math.max(max, Number(entry && entry.officedetailId) || 0),
+  OFFICE_DETAIL_ENTRIES.length
+);
 
 const BILLING_DEFAULT_METRICS = {
   loyaltyBooking: 9,
@@ -3234,6 +3519,18 @@ const deriveGuestName = (tour) => {
 const resolveContact = (source = {}) =>
   source.contact || source.contactNo || source.managerNo || source.phoneNo || source.mobile || "9999999999";
 
+const deriveEnquiryIdFromPayment = (paymentId) => {
+  const id = toPositiveInt(paymentId, null);
+  if (!id) {
+    return null;
+  }
+  const value = String(id);
+  if (value.length <= 1) {
+    return id;
+  }
+  return toPositiveInt(value.slice(0, -1), id) || id;
+};
+
 const generateFamilyHeadId = (tour, index = 0) =>
   toPositiveInt(tour.familyHeadGtId || tour.familyHeadId, null) ||
   Number(`${tour.groupTourId || 0}${(index % 9) + 1}`);
@@ -3946,6 +4243,575 @@ const getCustomEnquiryTable = () => {
   };
 };
 
+const getGroupTourCountMetric = () => {
+  const bookingCount = buildGroupBookingRecords().length;
+  const fallbackCount = groupTours.length || BILLING_DEFAULT_METRICS.currentBookingCount;
+  const groupTourCount = bookingCount || fallbackCount;
+  return {
+    groupTourCount,
+    message: groupTourCount ? "Group tour count fetched successfully" : "No group tours available",
+  };
+};
+
+const buildSalesProfitEntries = () => {
+  const entries = buildCustomPaymentSummaries();
+  if (entries.length) {
+    return entries;
+  }
+  const baseDate = startOfToday();
+  return buildCustomBookingRecords().slice(0, 8).map((record, index) => {
+    const amount = Math.max(45000, (index + 4) * 12500);
+    const payment = buildPaymentBreakdown(amount);
+    const startDate = record.startDate || formatDateOnly(addDaysToDate(baseDate, index * 4));
+    const endDate = record.endDate || formatDateOnly(addDaysToDate(toDate(startDate) || baseDate, 5));
+    return {
+      enquiryCustomId: record.enquiryId || Number(`${index + 1}01`),
+      groupName: record.tourName,
+      contactName: record.guestName,
+      destination: record.destinationName,
+      pax: record.pax,
+      startDate,
+      endDate,
+      status: index % 2 === 0 ? "PENDING" : "CONFIRMED",
+      ...payment,
+    };
+  });
+};
+
+const buildSalesProfitRows = () =>
+  buildSalesProfitEntries().map((entry, index) => {
+    const detail = buildCustomEnquiryDetail(entry.enquiryCustomId) || {};
+    const purchasePrice = roundCurrency(
+      toNumber(entry.discounted, 0) ||
+        toNumber(entry.tourPrice, 0) ||
+        toNumber(entry.grandTotal, 0) * 0.85
+    );
+    const sale = roundCurrency(Math.max(purchasePrice, toNumber(entry.grandTotal, purchasePrice)));
+    const profit = roundCurrency(Math.max(0, sale - purchasePrice));
+    const profitPer = purchasePrice ? Math.min(100, Math.round((profit / purchasePrice) * 100)) : 0;
+    const adults = toPositiveInt(detail.adults, 0) || 0;
+    const child = toPositiveInt(detail.child, 0) || 0;
+    const pax =
+      toPositiveInt(entry.pax, null) ||
+      adults + child ||
+      Math.max(2, toPositiveInt(detail.paxNo, null) || 2);
+    return {
+      saleId: entry.enquiryCustomId || Number(`${index + 1}01`),
+      enquiryCustomId: entry.enquiryCustomId || Number(`${index + 1}01`),
+      groupName: entry.groupName || detail.groupName || detail.tourName || `Custom Journey ${index + 1}`,
+      guestName: entry.contactName || detail.contactName || detail.guestName || `Guest ${index + 1}`,
+      destination: entry.destination || detail.destinationName || "Custom Destination",
+      pax,
+      startDate: entry.startDate || detail.startDate || formatDateOnly(startOfToday()),
+      endDate: entry.endDate || detail.endDate || formatDateOnly(startOfToday()),
+      purchasePrice,
+      sale,
+      profit,
+      profitPer,
+    };
+  });
+
+const listSalesProfitSummary = ({ page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const rows = buildSalesProfitRows();
+  const pagination = paginate(rows, pageNumber, perPageNumber);
+  return {
+    page: pagination.page,
+    perPage: pagination.perPage,
+    total: pagination.total,
+    lastPage: pagination.lastPage,
+    data: pagination.data,
+    message: pagination.total ? "Sales profit list fetched successfully" : "No sales profit data available",
+  };
+};
+
+const getBookingSalesAmountGraphCt = () => {
+  const counts = buildMonthlyCountArray(buildCustomBookingRecords(), 5);
+  let target = 18;
+  let achieve = 12;
+  const targetArray = [0];
+  const ctAchieveArray = [0];
+  counts.forEach((count, index) => {
+    const normalized = Math.max(4, Math.min(28, count + index));
+    target = Math.min(35, Math.max(target + Math.max(2, normalized - 1), 10));
+    achieve = Math.min(target - 1, Math.max(8, achieve + Math.max(1, normalized - 3)));
+    targetArray.push(Math.round(target));
+    ctAchieveArray.push(Math.round(achieve));
+  });
+  return {
+    targetArray,
+    ctAchieveArray,
+    message: "Booking sales amount graph fetched successfully",
+  };
+};
+
+const computeProfitPercent = (entries) => {
+  if (!entries.length) {
+    return 0;
+  }
+  const totals = entries.reduce(
+    (acc, entry) => {
+      const sale = toNumber(entry.grandTotal, 0);
+      const purchase = toNumber(entry.tourPrice, 0) || toNumber(entry.discounted, 0);
+      return {
+        sale: acc.sale + sale,
+        purchase: acc.purchase + purchase,
+      };
+    },
+    { sale: 0, purchase: 0 }
+  );
+  if (!totals.purchase) {
+    return 0;
+  }
+  const profit = Math.max(0, totals.sale - totals.purchase);
+  return Math.min(100, Math.round((profit / totals.purchase) * 100));
+};
+
+const getCustomProfitMetrics = () => {
+  const entries = buildSalesProfitEntries();
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const monthEntries = entries.filter((entry) => {
+    const date = toDate(entry.startDate);
+    return date && date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  });
+  const quarterStart = Math.floor(currentMonth / 3) * 3;
+  const quarterEntries = entries.filter((entry) => {
+    const date = toDate(entry.startDate);
+    if (!date || date.getFullYear() !== currentYear) {
+      return false;
+    }
+    const month = date.getMonth();
+    return month >= quarterStart && month < quarterStart + 3;
+  });
+  const yearEntries = entries.filter((entry) => {
+    const date = toDate(entry.startDate);
+    return date && date.getFullYear() === currentYear;
+  });
+  const packageWise =
+    entries.length === 0
+      ? 0
+      : Math.min(
+          100,
+          Math.round(
+            entries.reduce((sum, entry) => {
+              const sale = toNumber(entry.grandTotal, 0);
+              const purchase = toNumber(entry.tourPrice, 0) || toNumber(entry.discounted, 0);
+              if (!purchase) {
+                return sum;
+              }
+              const profit = Math.max(0, sale - purchase);
+              return sum + Math.min(100, (profit / purchase) * 100);
+            }, 0) / entries.length
+          )
+        );
+  return {
+    profitPer: packageWise,
+    profitPerMonth: computeProfitPercent(monthEntries.length ? monthEntries : entries),
+    profitPerQuarter: computeProfitPercent(quarterEntries.length ? quarterEntries : entries),
+    profitPerYear: computeProfitPercent(yearEntries.length ? yearEntries : entries),
+    message: entries.length ? "Profit metrics fetched successfully" : "No profit data available",
+  };
+};
+
+const resolveBillingCounters = () => {
+  const groupRecords = buildGroupConfirmRecords();
+  const customEntries = buildSalesProfitEntries();
+  const totalBilling = groupRecords.length + customEntries.length;
+  const groupApproved = groupRecords.filter((record) => toNumber(record.balance, 0) <= 0).length;
+  const customApproved = customEntries.filter(
+    (entry) => toNumber(entry.balance, 0) <= 0 || normalize(entry.status) === "confirmed"
+  ).length;
+  const totalBillApproved = groupApproved + customApproved;
+  const totalBillPending = Math.max(0, totalBilling - totalBillApproved);
+  return { totalBilling, totalBillApproved, totalBillPending };
+};
+
+const getTotalBillingSummary = () => {
+  const counters = resolveBillingCounters();
+  return {
+    totalBilling: counters.totalBilling,
+    message: counters.totalBilling ? "Total billing fetched successfully" : "No billing data available",
+  };
+};
+
+const getTotalBillApprovedSummary = () => {
+  const counters = resolveBillingCounters();
+  return {
+    totalBillApproved: counters.totalBillApproved,
+    message: counters.totalBillApproved ? "Approved billing fetched successfully" : "No approved bills available",
+  };
+};
+
+const getTotalBillPendingSummary = () => {
+  const counters = resolveBillingCounters();
+  return {
+    totalBillPending: counters.totalBillPending,
+    message: counters.totalBillPending ? "Pending billing fetched successfully" : "No pending bills available",
+  };
+};
+
+const buildWebsiteContactEntries = () =>
+  WEBSITE_CONTACT_ENTRIES.map((entry, index) => ({
+    contactUsId: entry.contactUsId || index + 101,
+    fullName: entry.fullName,
+    email: entry.email,
+    phoneNo: entry.phoneNo,
+    Date: entry.Date,
+    city: entry.city || "",
+    message: entry.message || "",
+    source: entry.source || "Website",
+    status: entry.status || "NEW",
+  }));
+
+const listWebsiteContactEntries = ({ page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const entries = buildWebsiteContactEntries();
+  return buildListResponse(
+    entries,
+    pageNumber,
+    perPageNumber,
+    {},
+    entries.length ? "Contact enquiries fetched successfully" : "No contact enquiries available"
+  );
+};
+
+const buildHomePageJourneyRecords = () => {
+  const tourMap = new Map();
+  groupTours.forEach((tour) => {
+    if (tour && tour.groupTourId) {
+      tourMap.set(Number(tour.groupTourId), tour);
+    }
+  });
+  return HOME_PAGE_JOURNEY_LAYOUT.map((entry, index) => {
+    const tour = tourMap.get(Number(entry.groupTourId));
+    const title = tour?.tourName || entry.tourName || `Featured Journey ${index + 1}`;
+    const path = slugify(title, `journey-${index + 1}`);
+    return {
+      selectionId: entry.selectionId || index + 1,
+      groupTourId: tour?.groupTourId || entry.groupTourId || index + 1,
+      tourName: title,
+      heroImageUrl: entry.heroImageUrl || tour?.bannerImage || tour?.heroImageUrl || DEFAULT_WEBSITE_BANNER,
+      badge: entry.badge || tour?.badge || "Popular",
+      highlight: entry.highlight || tour?.summary || "",
+      priceFrom: entry.priceFrom || tour?.startingPrice || tour?.priceFrom || 0,
+      duration: entry.duration || tour?.duration || "",
+      sequence: entry.sequence || index + 1,
+      detailPath: `/journeys/${path}`,
+    };
+  }).sort((a, b) => a.sequence - b.sequence);
+};
+
+const listHomePageJourneys = () => {
+  const data = buildHomePageJourneyRecords();
+  return {
+    data,
+    total: data.length,
+    selectedIds: data.map((entry) => entry.groupTourId),
+    message: data.length ? "Home page journeys fetched successfully" : "No journeys configured",
+  };
+};
+
+const updateHomePageJourneys = (payload = {}) => {
+  const uniqueIds = Array.from(new Set(parseIdList(payload.groupTourIds || payload.groupTourId))).filter(Boolean);
+  if (!uniqueIds.length) {
+    return { data: null, message: "groupTourIds are required" };
+  }
+  const slotCount = Math.max(HOME_PAGE_JOURNEY_LAYOUT.length, uniqueIds.length);
+  for (let index = 0; index < slotCount; index += 1) {
+    const selectionId = index + 1;
+    const groupTourId = uniqueIds[index] || null;
+    const base = HOME_PAGE_JOURNEY_LAYOUT[index] || {};
+    const tour = groupTourId ? groupTours.find((item) => Number(item.groupTourId) === groupTourId) : null;
+    const title = tour?.tourName || base.tourName || `Featured Journey ${selectionId}`;
+    const detailPath = `/journeys/${slugify(title, `journey-${selectionId}`)}`;
+    HOME_PAGE_JOURNEY_LAYOUT[index] = {
+      selectionId: base.selectionId || selectionId,
+      groupTourId,
+      tourName: title,
+      heroImageUrl: tour?.bannerImage || tour?.heroImageUrl || base.heroImageUrl || DEFAULT_WEBSITE_BANNER,
+      badge: tour?.badge || base.badge || "Popular",
+      highlight: tour?.summary || base.highlight || "",
+      priceFrom: tour?.startingPrice || tour?.priceFrom || base.priceFrom || 0,
+      duration: tour?.duration || base.duration || "",
+      sequence: selectionId,
+      detailPath,
+    };
+  }
+  const response = listHomePageJourneys();
+  return { ...response, message: "Home page journeys updated successfully" };
+};
+
+const buildTopFiveGroupJourneyRecords = () => {
+  const tourMap = new Map();
+  groupTours.forEach((tour) => {
+    if (tour && tour.groupTourId) {
+      tourMap.set(Number(tour.groupTourId), tour);
+    }
+  });
+  return TOP_FIVE_GROUP_JOURNEY_LAYOUT.map((entry, index) => {
+    const tour = entry.groupTourId ? tourMap.get(Number(entry.groupTourId)) : null;
+    const title = entry.title || tour?.tourName || `Journey ${index + 1}`;
+    return {
+      topFiveGroupJourneyId: entry.topFiveGroupJourneyId || index + 1,
+      groupTourId: entry.groupTourId || tour?.groupTourId || null,
+      title,
+      subTitle: entry.subTitle || tour?.summary || "",
+      topFiveGroupJourneyImageUrl:
+        entry.topFiveGroupJourneyImageUrl || tour?.bannerImage || tour?.heroImageUrl || DEFAULT_WEBSITE_BANNER,
+      topFiveGroupJourneyPathUrl:
+        entry.topFiveGroupJourneyPathUrl || `https://waari.travel/journeys/${slugify(title)}`,
+      sequence: entry.sequence || index + 1,
+    };
+  }).sort((a, b) => a.sequence - b.sequence);
+};
+
+const listTopFiveGroupJourneys = ({ page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const records = buildTopFiveGroupJourneyRecords();
+  return buildListResponse(
+    records,
+    pageNumber,
+    perPageNumber,
+    {},
+    records.length ? "Top five journeys fetched successfully" : "No top five journeys configured"
+  );
+};
+
+const getTopFiveGroupJourney = (topFiveGroupJourneyId) => {
+  const id = toPositiveInt(topFiveGroupJourneyId, null);
+  if (!id) {
+    return { data: null, message: "topFiveGroupJourneyId is required" };
+  }
+  const records = buildTopFiveGroupJourneyRecords();
+  const record = records.find((entry) => Number(entry.topFiveGroupJourneyId) === id);
+  if (!record) {
+    return { data: null, message: "Top five journey not found" };
+  }
+  return { data: cloneValue(record, {}), message: "Top five journey fetched successfully" };
+};
+
+const normalizeWebsiteReviewRecord = (entry, fallbackId) => {
+  const id = toPositiveInt(entry.reviewId, fallbackId) || fallbackId || 1;
+  const title = selectSanitizedValue(entry.title, `Review ${id}`);
+  const createdAt = selectSanitizedValue(entry.createdAt, entry.tourDate || formatDateOnly(startOfToday()));
+  const ratingValue = toNumber(entry.rating, 5);
+  const rating = Math.min(5, Math.max(1, ratingValue));
+  const typeValue = Number(entry.type);
+  return {
+    reviewId: id,
+    customerName: selectSanitizedValue(entry.customerName, `Customer ${id}`),
+    tourCode: selectSanitizedValue(entry.tourCode, `GT-${id}`),
+    type: Number.isNaN(typeValue) ? 1 : typeValue,
+    tourName: selectSanitizedValue(entry.tourName, entry.tourCode || title),
+    tourDate: selectSanitizedValue(entry.tourDate, createdAt),
+    title,
+    content: selectSanitizedValue(entry.content, entry.message || ""),
+    rating,
+    imageUrl: selectSanitizedValue(entry.imageUrl, DEFAULT_WEBSITE_BANNER),
+    status: selectSanitizedValue(entry.status, "PUBLISHED"),
+    createdAt,
+  };
+};
+
+const nextWebsiteReviewId = () => {
+  if (websiteReviewSequence < 400) {
+    websiteReviewSequence = 400;
+  }
+  websiteReviewSequence += 1;
+  return websiteReviewSequence;
+};
+
+const nextTourTypeId = () => {
+  if (tourTypeSequence < 1) {
+    tourTypeSequence = 1;
+  }
+  tourTypeSequence += 1;
+  return tourTypeSequence;
+};
+
+const buildWebsiteReviewRecords = () =>
+  WEBSITE_REVIEW_ENTRIES.map((entry, index) =>
+    normalizeWebsiteReviewRecord(entry, entry.reviewId || index + 401)
+  ).sort((a, b) => new Date(b.createdAt || b.tourDate || 0) - new Date(a.createdAt || a.tourDate || 0));
+
+const listWebsiteReviews = ({ page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const reviews = buildWebsiteReviewRecords();
+  return buildListResponse(
+    reviews,
+    pageNumber,
+    perPageNumber,
+    {},
+    reviews.length ? "Reviews fetched successfully" : "No reviews available"
+  );
+};
+
+const addWebsiteReview = (payload = {}) => {
+  const reviewId = toPositiveInt(payload.reviewId, null) || nextWebsiteReviewId();
+  const createdAt = selectSanitizedValue(payload.createdAt, formatDateOnly(startOfToday()));
+  const record = normalizeWebsiteReviewRecord({ ...payload, reviewId, createdAt }, reviewId);
+  WEBSITE_REVIEW_ENTRIES.push(record);
+  return { data: cloneValue(record, {}), message: "Review added successfully" };
+};
+
+const findWebsiteReviewIndex = (reviewId) =>
+  WEBSITE_REVIEW_ENTRIES.findIndex((entry) => toPositiveInt(entry.reviewId, null) === reviewId);
+
+const getWebsiteReview = (reviewId) => {
+  const id = toPositiveInt(reviewId, null);
+  if (!id) {
+    return { data: null, message: "reviewId is required" };
+  }
+  const index = findWebsiteReviewIndex(id);
+  if (index === -1) {
+    return { data: null, message: "Review not found" };
+  }
+  const record = normalizeWebsiteReviewRecord(WEBSITE_REVIEW_ENTRIES[index], id);
+  return { data: cloneValue(record, {}), message: "Review fetched successfully" };
+};
+
+const updateWebsiteReview = (payload = {}) => {
+  const id = toPositiveInt(payload.reviewId, null);
+  if (!id) {
+    return { data: null, message: "reviewId is required" };
+  }
+  const index = findWebsiteReviewIndex(id);
+  if (index === -1) {
+    return { data: null, message: "Review not found" };
+  }
+  const updated = normalizeWebsiteReviewRecord(
+    { ...WEBSITE_REVIEW_ENTRIES[index], ...payload, reviewId: id },
+    id
+  );
+  WEBSITE_REVIEW_ENTRIES[index] = updated;
+  return { data: cloneValue(updated, {}), message: "Review updated successfully" };
+};
+
+const normalizeTourTypeRecord = (entry, fallbackId) => {
+  const id = toPositiveInt(entry.tourTypeId, fallbackId) || fallbackId || 1;
+  const tourTypeName = selectSanitizedValue(entry.tourTypeName, `Tour Type ${id}`);
+  const image = selectSanitizedValue(
+    entry.tourTypeImage || entry.imageUrl || entry.image || entry.tourTypeImageUrl,
+    DEFAULT_WEBSITE_BANNER
+  );
+  const category = normalizeCategory(entry.category || entry.categoryName || entry.type || "GROUP");
+  const isActive = entry.isActive !== undefined ? Boolean(entry.isActive) : true;
+  return {
+    tourTypeId: id,
+    tourTypeName,
+    tourTypeImage: image,
+    tourTypeImageUrl: image,
+    category,
+    type: category,
+    isActive,
+  };
+};
+
+const addTourType = (payload = {}) => {
+  const tourTypeId = toPositiveInt(payload.tourTypeId, null) || nextTourTypeId();
+  const record = normalizeTourTypeRecord({ ...payload, tourTypeId }, tourTypeId);
+  tourTypes.push(record);
+  return { data: cloneValue(record, {}), message: "Tour type added successfully" };
+};
+
+const getTourType = (tourTypeId) => {
+  const id = toPositiveInt(tourTypeId, null);
+  if (!id) {
+    return { data: null, message: "tourTypeId is required" };
+  }
+  const record = tourTypes.find((entry) => Number(entry.tourTypeId) === id);
+  if (!record) {
+    return { data: null, message: "Tour type not found" };
+  }
+  return { data: cloneValue(record, {}), message: "Tour type fetched successfully" };
+};
+
+const nextOfficeDetailId = () => {
+  officeDetailSequence += 1;
+  return officeDetailSequence;
+};
+
+const normalizeOfficeDetailRecord = (entry, fallbackId) => {
+  const id = toPositiveInt(entry.officedetailId, fallbackId) || fallbackId;
+  return {
+    officedetailId: id,
+    cityName: selectSanitizedValue(entry.cityName, `City ${id}`),
+    address: selectSanitizedValue(entry.address, ""),
+    officeTiming: selectSanitizedValue(entry.officeTiming, ""),
+    contactNo: selectSanitizedValue(entry.contactNo, ""),
+    email: selectSanitizedValue(entry.email, ""),
+  };
+};
+
+const buildOfficeDetailRecords = () =>
+  OFFICE_DETAIL_ENTRIES.map((entry, index) => normalizeOfficeDetailRecord(entry, index + 1));
+
+const listOfficeDetails = ({ page = 1, perPage = 10 } = {}) => {
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const records = buildOfficeDetailRecords();
+  return buildListResponse(
+    records,
+    pageNumber,
+    perPageNumber,
+    {},
+    records.length ? "Sales offices fetched successfully" : "No sales offices available"
+  );
+};
+
+const getOfficeDetail = (officedetailId) => {
+  const id = toPositiveInt(officedetailId, null);
+  if (!id) {
+    return { data: null, message: "officedetailId is required" };
+  }
+  const records = buildOfficeDetailRecords();
+  const record = records.find((entry) => Number(entry.officedetailId) === id);
+  if (!record) {
+    return { data: null, message: "Sales office not found" };
+  }
+  return { data: record, message: "Sales office fetched successfully" };
+};
+
+const addOfficeDetail = (payload = {}) => {
+  const id = nextOfficeDetailId();
+  const record = normalizeOfficeDetailRecord({ ...payload, officedetailId: id }, id);
+  OFFICE_DETAIL_ENTRIES.push(record);
+  return { data: cloneValue(record, {}), message: "Sales office added successfully" };
+};
+
+const updateOfficeDetail = (payload = {}) => {
+  const id = toPositiveInt(payload.officedetailId, null);
+  if (!id) {
+    return { data: null, message: "officedetailId is required" };
+  }
+  const index = OFFICE_DETAIL_ENTRIES.findIndex((entry) => toPositiveInt(entry.officedetailId, null) === id);
+  if (index === -1) {
+    return { data: null, message: "Sales office not found" };
+  }
+  const updated = normalizeOfficeDetailRecord({ ...OFFICE_DETAIL_ENTRIES[index], ...payload, officedetailId: id }, id);
+  OFFICE_DETAIL_ENTRIES[index] = updated;
+  return { data: cloneValue(updated, {}), message: "Sales office updated successfully" };
+};
+
+const deleteOfficeDetail = (officedetailId) => {
+  const id = toPositiveInt(officedetailId, null);
+  if (!id) {
+    return { data: null, message: "officedetailId is required" };
+  }
+  const index = OFFICE_DETAIL_ENTRIES.findIndex((entry) => toPositiveInt(entry.officedetailId, null) === id);
+  if (index === -1) {
+    return { data: null, message: "Sales office not found" };
+  }
+  const [removed] = OFFICE_DETAIL_ENTRIES.splice(index, 1);
+  return { data: normalizeOfficeDetailRecord(removed, id), message: "Sales office deleted successfully" };
+};
+
 const splitNameParts = (value) => {
   const text = (value || "").toString().trim();
   if (!text) {
@@ -4275,6 +5141,14 @@ const buildGuestLoyaltyDirectory = () => {
       assignedUserId: toPositiveInt(record.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID,
     };
   });
+};
+
+const getGuestCountMetric = () => {
+  const guestCount = buildGuestLoyaltyDirectory().length;
+  return {
+    guestCount,
+    message: guestCount ? "Guest count fetched successfully" : "No guest data available",
+  };
 };
 
 const parseGuestIdentifier = (value) => {
@@ -5111,6 +5985,86 @@ const listVoucherTypeOptions = () => {
   };
 };
 
+const ensureCustomVoucherRecords = (enquiryCustomId) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return [];
+  }
+  if (!Array.isArray(customVoucherRecords[id]) || !customVoucherRecords[id].length) {
+    customVoucherRecords[id] = DEFAULT_VOUCHER_TYPES.map((type, index) => ({
+      customVoucherId: Number(`${id}${type.voucherTypeId}${index + 1}`),
+      enquiryCustomId: id,
+      voucherTypeId: type.voucherTypeId,
+      voucherName: type.voucherName,
+      vouchers: `${DOCUMENT_BASE_URL}/vouchers/${slugify(type.voucherName, "voucher")}-${id}-${index + 1}.pdf`,
+      uploadedAt: new Date(Date.now() - index * 3600000).toISOString(),
+    }));
+  }
+  return customVoucherRecords[id];
+};
+
+const listCustomVouchers = ({ enquiryCustomId, page = 1, perPage = 10 } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    return {
+      enquiryCustomId: null,
+      total: 0,
+      data: [],
+      page: 1,
+      perPage: perPage,
+      lastPage: 1,
+      message: "Invalid enquiryCustomId",
+    };
+  }
+  const store = ensureCustomVoucherRecords(id).slice();
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  return {
+    enquiryCustomId: id,
+    ...buildListResponse(store, pageNumber, perPageNumber, { enquiryCustomId: id }, "Vouchers fetched successfully"),
+  };
+};
+
+const uploadCustomVouchers = async ({ enquiryCustomId, voucherTypeId, file } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    const error = new Error("enquiryCustomId is required");
+    error.status = 400;
+    throw error;
+  }
+  const voucherType = resolveVoucherTypeMeta(voucherTypeId);
+  const files = Array.isArray(file) ? file : [];
+  const normalizedFiles = files
+    .map((entry) => toStringValue(entry?.vouchers || entry?.filePath || entry?.url))
+    .filter(Boolean);
+  if (!normalizedFiles.length) {
+    const error = new Error("file is required");
+    error.status = 400;
+    throw error;
+  }
+  const store = ensureCustomVoucherRecords(id);
+  const created = normalizedFiles.map((url, index) => {
+    const customVoucherId = Number(`${id}${Date.now()}${index + 1}`);
+    const payload = {
+      customVoucherId,
+      enquiryCustomId: id,
+      voucherTypeId: voucherType.voucherTypeId,
+      voucherName: voucherType.voucherName,
+      vouchers: url,
+      uploadedAt: new Date().toISOString(),
+    };
+    store.push(payload);
+    return payload;
+  });
+  customVoucherRecords[id] = store;
+  await persistTourFixture("customVoucherRecords");
+  return {
+    message: "Vouchers uploaded successfully",
+    totalUploaded: created.length,
+    data: created,
+  };
+};
+
 const DEFAULT_CANCELLATION_TEMPLATES = [
   {
     cancellationReason: "Medical emergency within the family",
@@ -5840,6 +6794,26 @@ const listFamilyHeadRoomShare = ({ enquiryGroupId, familyHeadGtId } = {}) => {
   };
 };
 
+const listCustomFamilyHeadRoomShare = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  const detail = context.detail || (context.enquiryCustomId ? buildCustomEnquiryDetail(context.enquiryCustomId) : null);
+  const options = resolveCustomRoomShareOptions(detail || {});
+  const paxCount = Math.max(1, context.familyHead?.paxPerHead || resolveCustomTotalPax(detail || {}));
+  const data = options.map((option, index) => ({
+    roomShareId: option.roomShareType || option.roomShareId || index + 1,
+    roomShareName: option.roomShareTypeLabel || option.roomShareName || `Option ${index + 1}`,
+    count: index === 0 ? paxCount : 0,
+  }));
+  return {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.familyHead?.enquiryDetailCustomId || context.enquiryDetailCustomId || null,
+    total: data.length,
+    data,
+    alreadyRoomsAdded: false,
+    message: data.length ? "Room share data fetched successfully" : "No room share data available",
+  };
+};
+
 const listRoomPriceOptions = (enquiryGroupId) => {
   const context = resolveFamilyHeadContext({ enquiryGroupId });
   const options = resolveRoomShareOptions(context.tour || {});
@@ -5944,6 +6918,29 @@ const listGuestDocumentRecords = ({ enquiryGroupId, familyHeadGtId } = {}) => {
   };
 };
 
+const listCustomGuestDocumentRecords = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  const records = buildCustomGuestDetailRecords(context);
+  const data = records.map((guest) => ({
+    familyHeadName: guest.guestName,
+    adharCard: guest.adharCard,
+    adharNo: guest.adharNo,
+    pan: guest.pan,
+    panNo: guest.panNo,
+    passport: guest.passport,
+    passportNo: guest.passportNo,
+    passport_issue_date: guest.passport_issue_date,
+    passport_expiry_date: guest.passport_expiry_date,
+  }));
+  return {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.enquiryDetailCustomId,
+    total: data.length,
+    data,
+    message: data.length ? "Guest documents fetched successfully" : "No guest documents available",
+  };
+};
+
 const resolveGroupGuestDetailId = (guest, index = 0) =>
   toPositiveInt(guest.groupGuestDetailId, null) ||
   toPositiveInt(guest.guestId, null) ||
@@ -5955,6 +6952,16 @@ const attachGroupGuestDetailIds = (records = []) =>
     groupGuestDetailId: resolveGroupGuestDetailId(guest, index),
   }));
 
+const resolveCustomGuestDetailId = (guest, index = 0) =>
+  toPositiveInt(guest.customGuestDetailsId, null) ||
+  Number(`${guest.enquiryDetailCustomId || guest.enquiryCustomId || 1}${(index % 9) + 1}`);
+
+const attachCustomGuestDetailIds = (records = []) =>
+  records.map((guest, index) => ({
+    ...guest,
+    customGuestDetailsId: resolveCustomGuestDetailId(guest, index),
+  }));
+
 const getGroupCancellationOverride = (groupGuestDetailId) => {
   const id = toPositiveInt(groupGuestDetailId, null);
   if (!id) {
@@ -5964,6 +6971,17 @@ const getGroupCancellationOverride = (groupGuestDetailId) => {
     groupCancellationOverrides[id] = {};
   }
   return groupCancellationOverrides[id];
+};
+
+const getCustomCancellationOverride = (customGuestDetailsId) => {
+  const id = toPositiveInt(customGuestDetailsId, null);
+  if (!id) {
+    return {};
+  }
+  if (!customCancellationOverrides[id]) {
+    customCancellationOverrides[id] = {};
+  }
+  return customCancellationOverrides[id];
 };
 
 const buildCancellationProcessRecords = (guests = []) => {
@@ -6079,6 +7097,128 @@ const getGroupCancellationProcessData = ({ enquiryGroupId, familyHeadGtId } = {}
   };
 };
 
+const buildCustomCancellationProcessRecords = (guests = []) => {
+  if (!guests.length) {
+    return [];
+  }
+  const templates = DEFAULT_CANCELLATION_TEMPLATES.length
+    ? DEFAULT_CANCELLATION_TEMPLATES
+    : [
+        {
+          cancellationReason: "Guest requested cancellation",
+          cancellationCharges: 2000,
+          refundAmount: 0,
+          cancelType: 1,
+          status: 0,
+        },
+      ];
+  return guests.slice(0, Math.max(templates.length, guests.length)).map((guest, index) => {
+    const template = templates[index % templates.length];
+    const refundProof =
+      template.cancelType === 1
+        ? template.refundProof || `${DOCUMENT_BASE_URL}/refunds/custom-${guest.customGuestDetailsId}.pdf`
+        : null;
+    const creditNote =
+      template.cancelType === 2
+        ? template.creditNote || `${DOCUMENT_BASE_URL}/credit-notes/custom-${guest.customGuestDetailsId}.pdf`
+        : null;
+    const record = {
+      enquiryCustomId: guest.enquiryCustomId,
+      enquiryDetailCustomId: guest.enquiryDetailCustomId,
+      guestId: guest.guestId,
+      customGuestDetailsId: guest.customGuestDetailsId,
+      name: guest.guestName,
+      cancellationReason: template.cancellationReason,
+      cancellationCharges: template.cancellationCharges,
+      refundAmount: template.refundAmount,
+      cancelType: template.cancelType,
+      status: template.status,
+      accountName: template.accountName || guest.guestName,
+      accountNo: template.accountNo || `XXXX${String(guest.customGuestDetailsId).slice(-4)}`,
+      bank: template.bank || "Waari Payments Bank",
+      branch: template.branch || "Head Office",
+      ifsc: template.ifsc || "WAAR0000001",
+      refundProof,
+      creditNote,
+    };
+    const override = getCustomCancellationOverride(record.customGuestDetailsId);
+    if (!override || !Object.keys(override).length) {
+      return record;
+    }
+    return {
+      ...record,
+      ...override,
+      cancellationReason: override.cancellationReason || record.cancellationReason,
+      cancellationCharges: override.cancellationCharges ?? record.cancellationCharges,
+      refundAmount: override.refundAmount ?? record.refundAmount,
+      cancelType: override.cancelType ?? record.cancelType,
+      status: override.status ?? record.status,
+      accountName: override.accountName || record.accountName,
+      accountNo: override.accountNo || record.accountNo,
+      bank: override.bank || record.bank,
+      branch: override.branch || record.branch,
+      ifsc: override.ifsc || record.ifsc,
+      refundProof: override.refundProof || record.refundProof,
+      creditNote: override.creditNote || record.creditNote,
+    };
+  });
+};
+
+const resolveCustomGuestCancellationState = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  if (!context.familyHead) {
+    return { context, guestRecords: [], cancellationRecords: [] };
+  }
+  const guestRecords = attachCustomGuestDetailIds(buildCustomGuestDetailRecords(context));
+  const cancellationRecords = buildCustomCancellationProcessRecords(guestRecords);
+  return { context, guestRecords, cancellationRecords };
+};
+
+const listCustomGuestsForCancellation = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const { context, guestRecords, cancellationRecords } = resolveCustomGuestCancellationState({ enquiryCustomId, enquiryDetailCustomId });
+  if (!context.familyHead) {
+    return {
+      enquiryCustomId: context.enquiryCustomId,
+      enquiryDetailCustomId: context.enquiryDetailCustomId,
+      total: 0,
+      data: [],
+      message: "No guests found for the provided enquiry",
+    };
+  }
+  const cancelledIds = new Set(cancellationRecords.map((record) => record.customGuestDetailsId));
+  const data = guestRecords.map((guest) => ({
+    customGuestDetailsId: guest.customGuestDetailsId,
+    enquiryCustomId: guest.enquiryCustomId,
+    enquiryDetailCustomId: guest.enquiryDetailCustomId,
+    guestId: guest.guestId,
+    firstName: guest.firstName,
+    lastName: guest.lastName,
+    isCancel: cancelledIds.has(guest.customGuestDetailsId),
+  }));
+  return {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.familyHead.enquiryDetailCustomId,
+    total: data.length,
+    data,
+    message: data.length
+      ? "Custom guest list fetched successfully"
+      : "No guests found for the provided enquiry",
+  };
+};
+
+const getCustomCancellationProcessData = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const { context, cancellationRecords } = resolveCustomGuestCancellationState({ enquiryCustomId, enquiryDetailCustomId });
+  return {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.enquiryDetailCustomId,
+    total: cancellationRecords.length,
+    data: cancellationRecords,
+    message: cancellationRecords.length
+      ? "Cancellation process data fetched successfully"
+      : "No cancellation process data available",
+  };
+};
+
 const getGuestCouponUsage = ({ guestId, enquiryGroupId } = {}) => {
   const id = toPositiveInt(guestId, null) || null;
   const coupon = {
@@ -6091,6 +7231,25 @@ const getGuestCouponUsage = ({ guestId, enquiryGroupId } = {}) => {
     enquiryGroupId: toPositiveInt(enquiryGroupId, null) || null,
     toDate: formatDateString(addDaysToDate(new Date(), 30)),
     description: "5% off on final tour cost up to ₹500",
+  };
+  return {
+    data: coupon,
+    message: "Coupon usage fetched successfully",
+  };
+};
+
+const getCustomGuestCouponUsage = ({ guestId, enquiryCustomId } = {}) => {
+  const id = toPositiveInt(guestId, null) || null;
+  const coupon = {
+    couponId: 601,
+    couponName: "WAARI-CT-5",
+    discountType: 2,
+    discountValue: 5,
+    maxDiscount: 500,
+    guestId: id,
+    enquiryCustomId: toPositiveInt(enquiryCustomId, null) || null,
+    toDate: formatDateString(addDaysToDate(new Date(), 30)),
+    description: "5% off on custom tour cost up to ₹500",
   };
   return {
     data: coupon,
@@ -6125,6 +7284,38 @@ const uploadGroupRefundProof = async ({ enquiryGroupId, familyHeadGtId, groupGue
   return {
     message: "Refund proof uploaded successfully",
     groupGuestDetailId: detailId,
+    refundProof: proofLink,
+  };
+};
+
+const uploadCustomRefundProof = async ({ enquiryCustomId, enquiryDetailCustomId, customGuestDetailsId, refundProof } = {}) => {
+  const detailId = toPositiveInt(customGuestDetailsId, null);
+  if (!detailId) {
+    const error = new Error("customGuestDetailsId is required");
+    error.status = 400;
+    throw error;
+  }
+  const proofLink = toStringValue(refundProof);
+  if (!proofLink) {
+    const error = new Error("refundProof is required");
+    error.status = 400;
+    throw error;
+  }
+  const override = getCustomCancellationOverride(detailId);
+  override.refundProof = proofLink;
+  if (enquiryCustomId) {
+    override.enquiryCustomId = toPositiveInt(enquiryCustomId, null) || override.enquiryCustomId || null;
+  }
+  if (enquiryDetailCustomId) {
+    override.enquiryDetailCustomId =
+      toPositiveInt(enquiryDetailCustomId, null) || override.enquiryDetailCustomId || null;
+  }
+  override.updatedAt = new Date().toISOString();
+  customCancellationOverrides[detailId] = override;
+  await persistTourFixture("customCancellationOverrides");
+  return {
+    message: "Refund proof uploaded successfully",
+    customGuestDetailsId: detailId,
     refundProof: proofLink,
   };
 };
@@ -6206,6 +7397,59 @@ const getGroupTourCostDetails = ({ enquiryGroupId, familyHeadGtId, guestId } = {
   };
 };
 
+const getCustomTourCostDetails = ({ enquiryCustomId, enquiryDetailCustomId, guestId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  if (!context.familyHead || !context.enquiryCustomId) {
+    return { data: {}, message: "Family head data not found" };
+  }
+  const detail = context.detail || buildCustomEnquiryDetail(context.enquiryCustomId);
+  if (!detail) {
+    return { data: {}, message: "Family head data not found" };
+  }
+  const billingContext = resolveCustomBillingContext(context.enquiryCustomId);
+  const summary =
+    billingContext?.summary ||
+    resolveCustomPaymentSummary(context.enquiryCustomId) || {
+      enquiryCustomId: context.enquiryCustomId,
+      grandTotal: 0,
+      advancePayment: 0,
+      balance: 0,
+      uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${context.enquiryCustomId}`,
+    };
+  const totalPax = resolveCustomTotalPax(detail);
+  const paxPerHead = Math.max(1, context.familyHead.paxPerHead || totalPax);
+  const ratio = totalPax ? Math.min(1, paxPerHead / totalPax) : 1;
+  const shareAmount = toNumber(summary.grandTotal, 0) * ratio;
+  const payment = buildPaymentBreakdown(shareAmount);
+  const coupon = getCustomGuestCouponUsage({ guestId, enquiryCustomId: context.enquiryCustomId }).data;
+  const loyaltyPoints = Math.max(0, toNumber(context.familyHead.loyaltyPoints, 0));
+  const points = Math.min(500, loyaltyPoints);
+  const couponDiscountAmount = coupon
+    ? Number(coupon.discountType) === 2
+      ? Math.min(payment.discounted * (coupon.discountValue / 100), coupon.maxDiscount)
+      : coupon.discountValue
+    : 0;
+  const data = {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.familyHead.enquiryDetailCustomId,
+    guestId: toPositiveInt(guestId, context.familyHead.guestId),
+    tourPrice: payment.tourPrice,
+    points,
+    discountprice: Math.max(0, payment.discounted - couponDiscountAmount - points),
+    gst: payment.gst,
+    tcs: payment.tcs,
+    grandtotal: payment.grand,
+    couponDiscount: couponDiscountAmount,
+    couponId: coupon?.couponId || null,
+    loyaltyPoints: loyaltyPoints,
+    isTourCostSubmitted: true,
+  };
+  return {
+    data,
+    message: "Tour cost details fetched successfully",
+  };
+};
+
 const listPaymentModeOptions = () => PAYMENT_MODE_OPTIONS;
 
 const listOnlineTypeOptions = () => ONLINE_TYPE_OPTIONS;
@@ -6249,6 +7493,70 @@ const getPaymentCalculationDetails = ({ enquiryGroupId, familyHeadGtId } = {}) =
   return {
     enquiryGroupId: context.enquiryGroupId,
     familyHeadGtId: context.familyHead.familyHeadGtId,
+    data,
+    message: "Payment calculation fetched successfully",
+  };
+};
+
+const getCustomPaymentCalculationDetails = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  if (!context.familyHead || !context.enquiryCustomId) {
+    return { data: {}, message: "Family head data not found" };
+  }
+  const detail = context.detail || buildCustomEnquiryDetail(context.enquiryCustomId);
+  if (!detail) {
+    return { data: {}, message: "Family head data not found" };
+  }
+  const billingContext = resolveCustomBillingContext(context.enquiryCustomId);
+  const summary =
+    billingContext?.summary ||
+    resolveCustomPaymentSummary(context.enquiryCustomId) || {
+      enquiryCustomId: context.enquiryCustomId,
+      grandTotal: 0,
+      advancePayment: 0,
+      balance: 0,
+      uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${context.enquiryCustomId}`,
+    };
+  const billing = billingContext?.billing || buildCustomBillingData(detail, summary);
+  const totalPax = resolveCustomTotalPax(detail);
+  const paxPerHead = Math.max(1, context.familyHead.paxPerHead || totalPax);
+  const ratio = totalPax ? Math.min(1, paxPerHead / totalPax) : 1;
+  const shareAmount = toNumber(summary.grandTotal, 0) * ratio;
+  const payment = buildPaymentBreakdown(shareAmount);
+  const billingName = `${context.familyHead.preFixName || ""} ${context.familyHead.firstName || ""} ${
+    context.familyHead.lastName || ""
+  }`
+    .replace(/\s+/g, " ")
+    .trim() || billing.billingName;
+  const address = context.familyHead.address || detail.address || billing.address;
+  const phoneNo = context.familyHead.contact || detail.contact || billing.phoneNumber;
+  const data = {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.familyHead.enquiryDetailCustomId,
+    sameAsbillingName: billingName,
+    sameAsaddress: address,
+    sameAsphoneno: phoneNo,
+    billingName,
+    address,
+    phoneNo,
+    gstin: billing.gstIn || COMPANY_PROFILE.gstIn,
+    panNo: billing.panNumber || COMPANY_PROFILE.panNo,
+    grandTotal: Number(payment.grand.toFixed(2)),
+    advancePayment: Number(payment.advancePayment.toFixed(2)),
+    paymentModeId: PAYMENT_MODE_OPTIONS[0].paymentModeId,
+    onlineTypeId: ONLINE_TYPE_OPTIONS[0].onlineTypeId,
+    cardTypeId: CARD_TYPE_OPTIONS[0].cardTypeId,
+    bankName: "Waari Payments Bank",
+    chequeNo: "",
+    paymentDate: formatDateString(new Date()),
+    transactionId: `TXNCT${context.familyHead.enquiryDetailCustomId}`,
+    transactionProof: `${DOCUMENT_BASE_URL}/payments/custom-${context.familyHead.enquiryDetailCustomId}.png`,
+    balance: Number(payment.balance.toFixed(2)),
+    isPaymentDone: payment.balance <= 0,
+  };
+  return {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.familyHead.enquiryDetailCustomId,
     data,
     message: "Payment calculation fetched successfully",
   };
@@ -6428,7 +7736,11 @@ const getGroupNewPaymentDetails = ({ groupPaymentDetailId } = {}) => {
   };
 };
 
-const updateGroupPaymentStatus = async ({ groupPaymentDetailId } = {}) => {
+const updateGroupPaymentStatus = async ({
+  groupPaymentDetailId,
+  enquiryGroupId,
+  familyHeadGtId,
+} = {}) => {
   const paymentId = toPositiveInt(groupPaymentDetailId, null);
   if (!paymentId) {
     const error = new Error("groupPaymentDetailId is required");
@@ -6436,22 +7748,33 @@ const updateGroupPaymentStatus = async ({ groupPaymentDetailId } = {}) => {
     throw error;
   }
   const context = findGroupPaymentEntry(paymentId);
-  if (!context) {
-    const error = new Error("Group payment detail not found");
-    error.status = 404;
-    throw error;
-  }
   const override = getGroupPaymentOverride(paymentId);
+  const resolvedEnquiryId =
+    override.enquiryGroupId || context?.enquiryGroupId || toPositiveInt(enquiryGroupId, null) || deriveEnquiryIdFromPayment(paymentId);
+  const resolvedFamilyHeadId =
+    override.familyHeadGtId || context?.familyHead?.familyHeadGtId || toPositiveInt(familyHeadGtId, null) || Number(`${resolvedEnquiryId}1`);
+
   override.status = 1;
   override.paymentDate = formatDateOnly(new Date());
-  override.paymentModeId = override.paymentModeId || context.payment.paymentModeId || 1;
-  override.transactionId = override.transactionId || context.payment.transactionId || `TXN${paymentId}`;
+  override.enquiryGroupId = resolvedEnquiryId;
+  override.familyHeadGtId = resolvedFamilyHeadId;
+  override.advancePayment =
+    toNumber(override.advancePayment, null) ?? context?.payment?.advancePayment ?? 0;
+  override.paymentModeId = override.paymentModeId || context?.payment?.paymentModeId || 1;
+  override.paymentModeName = override.paymentModeName || context?.payment?.paymentModeName || "Online";
+  override.onlineTypeId = override.onlineTypeId || context?.payment?.onlineTypeId || 1;
+  override.onlineTypeName = override.onlineTypeName || context?.payment?.onlineTypeName || "UPI";
+  override.bankName = override.bankName || context?.payment?.bankName || "Waari Payments Bank";
+  override.transactionId = override.transactionId || context?.payment?.transactionId || `TXN${paymentId}`;
   override.transactionProof =
-    override.transactionProof || context.payment.transactionProof || `${DOCUMENT_BASE_URL}/payments/${paymentId}.pdf`;
+    override.transactionProof || context?.payment?.transactionProof || `${DOCUMENT_BASE_URL}/payments/${paymentId}.pdf`;
+
   groupPaymentOverrides[paymentId] = override;
   await persistTourFixture("groupPaymentOverrides");
   return {
     groupPaymentDetailId: paymentId,
+    enquiryGroupId: resolvedEnquiryId,
+    familyHeadGtId: resolvedFamilyHeadId,
     message: "Group payment status updated successfully",
   };
 };
@@ -6600,6 +7923,7 @@ const buildCustomCallFollowHistory = (enquiryCustomId) => {
   if (!detail) {
     return [];
   }
+  const stored = getStoredCustomCallFollowUps(id);
   const callCount = Math.max(1, Math.min(5, Math.ceil(resolveCustomTotalPax(detail) / 2)));
   const baseDate = toDate(detail.startDate) || new Date();
   const assignedUserId = toPositiveInt(detail.assignedUserId, DEFAULT_FOLLOW_UP_USER_ID) || DEFAULT_FOLLOW_UP_USER_ID;
@@ -6625,7 +7949,7 @@ const buildCustomCallFollowHistory = (enquiryCustomId) => {
       assignedUserName,
     });
   }
-  return history;
+  return stored.length ? [...stored, ...history] : history;
 };
 
 const listCallStatusOptions = () => DEFAULT_CALL_STATUS_OPTIONS;
@@ -6635,6 +7959,19 @@ const listCallFollowHistory = (enquiryGroupId) => {
   const data = buildCallFollowHistory(id);
   return {
     enquiryGroupId: id,
+    total: data.length,
+    data,
+    message: data.length
+      ? "Call follow-up history fetched successfully"
+      : "No follow-up history available for this enquiry",
+  };
+};
+
+const listCustomCallFollowHistory = (enquiryCustomId) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  const data = buildCustomCallFollowHistory(id);
+  return {
+    enquiryCustomId: id,
     total: data.length,
     data,
     message: data.length
@@ -6673,6 +8010,42 @@ const saveGroupCallFollowUp = async ({ enquiryGroupId, callStatusId, callSummary
   existing.unshift(record);
   groupCallFollowUps[id] = existing.slice(0, 25);
   await persistTourFixture("groupCallFollowUps");
+  return {
+    message: "Call follow-up saved successfully",
+    data: record,
+  };
+};
+
+const saveCustomCallFollowUp = async ({ enquiryCustomId, callStatusId, callSummary, nextFollowUpDate, nextFollowUpTime } = {}) => {
+  const id = toPositiveInt(enquiryCustomId, null);
+  if (!id) {
+    const error = new Error("enquiryCustomId is required");
+    error.status = 400;
+    throw error;
+  }
+  const statusMeta = resolveCallStatusMeta(callStatusId);
+  const summary = toStringValue(callSummary) || `Discussed ${statusMeta.callStatusName.toLowerCase()} status`;
+  const now = new Date();
+  const followUpDate = normalizeFollowUpDate(nextFollowUpDate, addDaysToDate(now, 2));
+  const followUpTime = toStringValue(nextFollowUpTime) || "10:00";
+  const detail = buildCustomEnquiryDetail(id) || {};
+  const record = {
+    callFollowUpId: Number(`${id}${Date.now().toString().slice(-4)}`),
+    enquiryCustomId: id,
+    callStatusId: statusMeta.callStatusId,
+    callStatusName: statusMeta.callStatusName,
+    callSummary: summary,
+    currentFollowUpDate: formatDateOnly(now),
+    currentFollowUpTime: formatTimeString(now),
+    nextFollowUpDate: followUpDate,
+    nextFollowUpTime: followUpTime,
+    assignedUserId: detail.assignedUserId || DEFAULT_FOLLOW_UP_USER_ID,
+    assignedUserName: detail.assignedUserName || "Waari Custom Team",
+  };
+  const existing = Array.isArray(customCallFollowUps[id]) ? customCallFollowUps[id] : [];
+  existing.unshift(record);
+  customCallFollowUps[id] = existing.slice(0, 25);
+  await persistTourFixture("customCallFollowUps");
   return {
     message: "Call follow-up saved successfully",
     data: record,
@@ -6735,6 +8108,71 @@ const getGroupPaymentDetails = ({ enquiryGroupId, familyHeadGtId } = {}) => {
     data: payload,
     total: payload.length,
     message: "Payment bill fetched successfully",
+  };
+};
+
+const getCustomPaymentDetails = ({ enquiryCustomId, enquiryDetailCustomId } = {}) => {
+  const context = resolveCustomFamilyHeadContext({ enquiryCustomId, enquiryDetailCustomId });
+  if (!context.enquiryCustomId) {
+    return {
+      enquiryCustomId: null,
+      enquiryDetailCustomId: null,
+      total: 0,
+      data: [],
+      message: "No payment bill data available",
+    };
+  }
+  const detail = context.detail || buildCustomEnquiryDetail(context.enquiryCustomId) || {
+    enquiryCustomId: context.enquiryCustomId,
+    enquiryDetailCustomId: context.enquiryDetailCustomId,
+  };
+  const defaultSummary = {
+    enquiryCustomId: detail.enquiryCustomId,
+    grandTotal: 0,
+    advancePayment: 0,
+    balance: 0,
+    uniqueEnqueryId: detail.uniqueEnqueryId || `CT-${detail.enquiryCustomId || 1}`,
+  };
+  const summary = resolveCustomPaymentSummary(detail.enquiryCustomId) || defaultSummary;
+  const existingContext = resolveCustomBillingContext(detail.enquiryCustomId);
+  const billingDetail = existingContext?.detail || detail;
+  const billingSummary = existingContext?.summary || summary;
+  const billing = existingContext?.billing || buildCustomBillingData(billingDetail, billingSummary);
+  const totalPax = resolveCustomTotalPax(billingDetail);
+  const paxPerHead = Math.max(1, context.familyHead?.paxPerHead || totalPax);
+  const ratio = totalPax ? Math.min(1, paxPerHead / totalPax) : 1;
+  const paidAmount = billing.advancePayments
+    .filter((payment) => Number(payment.status) === 1)
+    .reduce((total, payment) => total + toNumber(payment.advancePayment, 0), 0);
+  const grandTotalShare = toNumber(billing.grandTotal, 0) * ratio;
+  const paidShare = paidAmount * ratio;
+  const balanceShare = Math.max(0, grandTotalShare - paidShare);
+  const guestName = context.familyHead
+    ? [context.familyHead.preFixName, context.familyHead.firstName, context.familyHead.lastName]
+        .filter((value) => value && value.toString().trim())
+        .join(" ")
+        .trim()
+    : billing.billingName;
+  const record = {
+    enquiryCustomId: billingDetail?.enquiryCustomId || detail.enquiryCustomId,
+    enquiryDetailCustomId:
+      context.familyHead?.enquiryDetailCustomId ||
+      billingDetail?.enquiryDetailCustomId ||
+      detail.enquiryDetailCustomId ||
+      context.enquiryDetailCustomId,
+    guestName,
+    paxPerHead,
+    grandTotal: Number(grandTotalShare.toFixed(2)),
+    advancePayment: Number(paidShare.toFixed(2)),
+    balance: Number(balanceShare.toFixed(2)),
+  };
+  const hasRecord = Boolean(record.enquiryCustomId);
+  return {
+    enquiryCustomId: record.enquiryCustomId,
+    enquiryDetailCustomId: record.enquiryDetailCustomId,
+    total: hasRecord ? 1 : 0,
+    data: hasRecord ? [record] : [],
+    message: hasRecord ? "Payment bill fetched successfully" : "No payment bill data available",
   };
 };
 
@@ -6954,6 +8392,26 @@ const parseCityIds = (input) => {
       .filter(Boolean);
   }
   return [];
+};
+
+const parseIdList = (input) => {
+  if (Array.isArray(input)) {
+    return input.map((value) => toPositiveInt(value, null)).filter(Boolean);
+  }
+  if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) {
+        return parsed.map((value) => toPositiveInt(value, null)).filter(Boolean);
+      }
+    } catch (error) {}
+    return input
+      .split(",")
+      .map((value) => toPositiveInt(value.trim(), null))
+      .filter(Boolean);
+  }
+  const numeric = toPositiveInt(input, null);
+  return numeric ? [numeric] : [];
 };
 
 const nextGroupTourId = () =>
@@ -7446,10 +8904,32 @@ module.exports = {
   listLoyaltyGuests,
   listAllLoyaltyGuests,
   listBillingBirthdayGuests,
+  getGroupTourCountMetric,
+  getGuestCountMetric,
   getLoyaltyBookingMetric,
   getWelcomeBookingMetric,
   getReferralRateMetric,
   getMoreBookingCounts,
+  listSalesProfitSummary,
+  getBookingSalesAmountGraphCt,
+  getCustomProfitMetrics,
+  getTotalBillingSummary,
+  getTotalBillApprovedSummary,
+  getTotalBillPendingSummary,
+  listWebsiteContactEntries,
+  listHomePageJourneys,
+  updateHomePageJourneys,
+  listTopFiveGroupJourneys,
+  getTopFiveGroupJourney,
+  listWebsiteReviews,
+  addWebsiteReview,
+  getWebsiteReview,
+  updateWebsiteReview,
+  listOfficeDetails,
+  getOfficeDetail,
+  addOfficeDetail,
+  updateOfficeDetail,
+  deleteOfficeDetail,
   getCommissionReport,
   listWaariSelectReport,
   downloadWaariSelectReport,
@@ -7483,6 +8963,8 @@ module.exports = {
   listCustomBookingRecords,
   listAllCustomBookingRecords,
   listTourTypes,
+  addTourType,
+  getTourType,
   listCities,
   listDestinations,
   listVehicles,
@@ -7499,21 +8981,32 @@ module.exports = {
   saveFamilyHeadDetails,
   getFamilyHeadEnquiryDetail,
   listFamilyHeadRoomShare,
+  listCustomFamilyHeadRoomShare,
   listRoomPriceOptions,
   listTravelModeOptions,
   listGroupGuestsForCancellation,
+  listCustomGuestsForCancellation,
   getGroupCancellationProcessData,
+  getCustomCancellationProcessData,
   getFamilyHeadGuestDetails,
   getCustomGuestDetails,
   listGuestDocumentRecords,
+  listCustomGuestDocumentRecords,
   getGuestCouponUsage,
+  getCustomGuestCouponUsage,
   checkGuestExists,
   listPaymentModeOptions,
   listOnlineTypeOptions,
   listCardTypeOptions,
+  listVoucherTypeOptions,
+  listCustomVouchers,
+  uploadCustomVouchers,
   getGroupTourCostDetails,
+  getCustomTourCostDetails,
   getGroupPaymentDetails,
+  getCustomPaymentDetails,
   getPaymentCalculationDetails,
+  getCustomPaymentCalculationDetails,
   getGroupBillView,
   getGroupNewPaymentDetails,
   updateGroupPaymentStatus,
@@ -7524,8 +9017,11 @@ module.exports = {
   getCustomTotalCallCount,
   listCallStatusOptions,
   listCallFollowHistory,
+  listCustomCallFollowHistory,
   saveGroupCallFollowUp,
+  saveCustomCallFollowUp,
   uploadGroupRefundProof,
+  uploadCustomRefundProof,
   cancelGroupEnquiry,
   listLostGroupEnquiries,
   listAllLostGroupEnquiries,

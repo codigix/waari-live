@@ -77,10 +77,10 @@ const CATEGORY_NAME_MAP = {
   61: "All Operation Management",
 };
 
-const buildFullAccessPermissions = () =>
+const buildFullAccessPermissions = (listKey = "listId") =>
   DEFAULT_CAT_IDS.map((catId) => ({
     catId,
-    listId: [...FULL_ACCESS_LIST_IDS],
+    [listKey]: [...FULL_ACCESS_LIST_IDS],
   }));
 
 const listRoles = async ({ page, perPage, roleName }) => {
@@ -157,9 +157,60 @@ const getPermissionsByRoleId = async (roleId) => {
   return buildFullAccessPermissions();
 };
 
+const getRoleData = async (roleId) => {
+  let roleRow = null;
+  try {
+    const [rows] = await pool.query(
+      `SELECT roleId, roleName, isActive
+         FROM roles
+        WHERE roleId = ?
+        LIMIT 1`,
+      [roleId]
+    );
+    roleRow = rows[0] || null;
+  } catch (error) {}
+
+  return {
+    roleId: Number(roleId),
+    roleName: roleRow?.roleName || `Role ${roleId}`,
+    isActive: sanitizeBoolean(roleRow?.isActive ?? 1),
+    permissions: buildFullAccessPermissions("listIds"),
+  };
+};
+
+const updateRoleData = async ({ roleId, roleName, isActive, permissions }) => {
+  const numericRoleId = Number(roleId);
+  const normalizedStatus = sanitizeBoolean(isActive);
+  try {
+    const [result] = await pool.query(
+      `UPDATE roles
+          SET roleName = ?, isActive = ?
+        WHERE roleId = ?`,
+      [roleName, normalizedStatus, numericRoleId]
+    );
+    if (!result.affectedRows) {
+      await pool.query(
+        `INSERT INTO roles (roleId, roleName, isActive)
+             VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE roleName = VALUES(roleName), isActive = VALUES(isActive)`,
+        [numericRoleId, roleName, normalizedStatus]
+      );
+    }
+  } catch (error) {}
+
+  return {
+    roleId: numericRoleId,
+    roleName,
+    isActive: normalizedStatus,
+    permissions: Array.isArray(permissions) ? permissions : [],
+  };
+};
+
 module.exports = {
   listRoles,
   getPermissionCategories,
   getPermissionListsByCatId,
   getPermissionsByRoleId,
+  getRoleData,
+  updateRoleData,
 };

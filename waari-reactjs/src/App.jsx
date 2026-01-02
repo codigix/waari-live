@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Route, Routes, useNavigate, useLocation } from "react-router-dom";
+import PropTypes from "prop-types";
 import { checkAutoLogin } from "./services/AuthService";
 import { ToastContainer } from "react-toastify";
 import Index from "./jsx";
@@ -7,11 +8,25 @@ import "./css/style.css";
 import Feedbackform from "./jsx/pages/Feedbackform";
 import { get } from "./services/apiServices";
 import { useDispatch, useSelector } from "react-redux";
-import { login, setPermissions } from "./store/actions/authActions";
+import { setPermissions } from "./store/actions/authActions";
 import OTPVerify from "./jsx/pages/OTPVerify";
 import ForgotPassword from "./jsx/pages/ForgotPassword";
 import VerifyForgetPasswordOTP from "./jsx/pages/VerifyForgetPasswordOTP";
 
+
+const ToastCloseButton = ({ closeToast }) => (
+	<button
+		type="button"
+		onClick={closeToast}
+		style={{ width: "30px", backgroundColor: "inherit", border: "none", color: "white" }}
+	>
+		X
+	</button>
+);
+
+ToastCloseButton.propTypes = {
+	closeToast: PropTypes.func,
+};
 
 const Login = lazy(() => {
 	return new Promise((resolve) => {
@@ -77,18 +92,7 @@ function App() {
 					draggable
 					pauseOnHover
 					theme="colored"
-					closeButton={
-						<button
-							style={{
-								width: "30px",
-								backgroundColor: "inherit",
-								border: "none",
-								color: "white",
-							}}
-						>
-							X
-						</button>
-					}
+					closeButton={ToastCloseButton}
 				/>
 			</>
 		);
@@ -118,18 +122,7 @@ function App() {
 						draggable
 						pauseOnHover
 						theme="colored"
-						closeButton={
-							<button
-								style={{
-									width: "30px",
-									backgroundColor: "inherit",
-									border: "none",
-									color: "white",
-								}}
-							>
-								X
-							</button>
-						}
+						closeButton={ToastCloseButton}
 					/>
 				</Suspense>
 			</div>

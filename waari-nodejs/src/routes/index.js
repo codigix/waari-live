@@ -8,6 +8,8 @@ const influencerAffiliateRoutes = require("./influencerAffiliateRoutes");
 const salesRoutes = require("./salesRoutes");
 const geoRoutes = require("./geoRoutes");
 const tourRoutes = require("./tourRoutes");
+const couponRoutes = require("./couponRoutes");
+const feedbackRoutes = require("./feedbackRoutes");
 
 const router = Router();
 
@@ -19,6 +21,9 @@ router.use(influencerAffiliateRoutes);
 router.use(salesRoutes);
 router.use(geoRoutes);
 router.use(tourRoutes);
+router.use(teamRoutes);
+router.use(couponRoutes);
+router.use(feedbackRoutes);
 router.use("/role", roleRoutes);
 router.use("/teams", teamRoutes);
 

@@ -29,6 +29,28 @@ const tourTypeOptions = [
     },
 ];
 
+const isValidImageUrl = (value) => {
+    if (!value) {
+        return true;
+    }
+
+    const normalized = value.trim();
+    if (!normalized) {
+        return true;
+    }
+
+    if (/^https?:\/\//i.test(normalized)) {
+        try {
+            new URL(normalized);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    return normalized.startsWith("/") || normalized.startsWith("uploads/");
+};
+
 const validationSchema = Yup.object().shape({
     tourCode: Yup.string()
         .required("Tour code is required")
@@ -38,9 +60,13 @@ const validationSchema = Yup.object().shape({
     //     .required("Image URL is required")
     //     .url("Invalid URL format for the image"),
     imageUrl: Yup.string()
-    .nullable()              // allows null
-    .notRequired()           // field is optional
-    .url("Invalid URL format for the image"),
+        .nullable()
+        .transform((value, originalValue) => {
+            const trimmed = (originalValue || "").trim();
+            return trimmed || null;
+        })
+        .notRequired()
+        .test("is-valid-image-url", "Invalid URL format for the image", isValidImageUrl),
 
     title: Yup.string()
         .required("Title is required")
