@@ -1406,6 +1406,24 @@ const getTopFiveGroupJourney = (req, res, next) => {
   }
 };
 
+const updateTopFiveGroupJourney = (req, res, next) => {
+  try {
+    const payload = { ...(req.body || {}) };
+    if (typeof payload.topFiveGroupJourneyId === "undefined" && typeof req.query.topFiveGroupJourneyId !== "undefined") {
+      payload.topFiveGroupJourneyId = req.query.topFiveGroupJourneyId;
+    }
+    const response = tourService.updateTopFiveGroupJourney(payload);
+    if (!response.data) {
+      return res
+        .status(response.message === "topFiveGroupJourneyId is required" ? 400 : 404)
+        .json(response);
+    }
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listWebsiteReviews = (req, res, next) => {
   try {
     const response = tourService.listWebsiteReviews({
@@ -2449,6 +2467,7 @@ module.exports = {
   updateHomePageJourneys,
   listTopFiveGroupJourneys,
   getTopFiveGroupJourney,
+  updateTopFiveGroupJourney,
   listWebsiteReviews,
   addWebsiteReview,
   getWebsiteReview,

@@ -28,6 +28,7 @@ router.get("/get-home-page-journey", tourController.listHomePageJourneys);
 router.post("/add-home-page-journey", tourController.updateHomePageJourneys);
 router.get("/topfivegroupjourney-list", tourController.listTopFiveGroupJourneys);
 router.get("/get-edit-topfivegroupjourney", tourController.getTopFiveGroupJourney);
+router.post("/edit-topfivegroupjourney", tourController.updateTopFiveGroupJourney);
 router.get("/review-list", tourController.listWebsiteReviews);
 router.post("/add-review", tourController.addWebsiteReview);
 router.get("/get-edit-review", tourController.getWebsiteReview);

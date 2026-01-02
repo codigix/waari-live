@@ -19,6 +19,32 @@ import {
 } from "../../../../../store/actions/groupTourAction";
 import EditPackageDataPopup from "../../common/EditPackageDataPopup";
 
+const normalizeChildrenAges = (value) => {
+	if (Array.isArray(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		try {
+			const parsed = JSON.parse(value);
+			if (Array.isArray(parsed)) {
+				return parsed;
+			}
+		} catch (error) {
+			const tokens = value
+				.split(/[\,\s]+/)
+				.map((token) => token.trim())
+				.filter(Boolean);
+			if (tokens.length) {
+				return tokens;
+			}
+		}
+	}
+	if (value === null || value === undefined || value === "") {
+		return [];
+	}
+	return [value];
+};
+
 const Journeyct = ({ enquiryId }) => {
     const [isFollowupSubmitting, setIsFollowupSubmitting] = useState(false);
     const [isPackageSubmitting, setIsPackageSubmitting] = useState(false);
@@ -183,7 +209,7 @@ const Journeyct = ({ enquiryId }) => {
             mealplan: dataToPatch?.mealPlanId ? dataToPatch?.mealPlanId : "",
             totalextrabed: dataToPatch?.extraBed ? dataToPatch?.extraBed : "",
             totalrooms: dataToPatch?.rooms ? dataToPatch?.rooms : "",
-            childrenages: dataToPatch?.age || [],
+            childrenages: normalizeChildrenAges(dataToPatch?.age),
             adults: dataToPatch?.adults ? dataToPatch?.adults : "",
             child: dataToPatch?.child ? dataToPatch?.child : "",
             hotel: dataToPatch?.hotelCatId ? dataToPatch?.hotelCatId : "",

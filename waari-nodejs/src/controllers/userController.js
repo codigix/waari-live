@@ -80,6 +80,64 @@ const viewUser = async (req, res, next) => {
   }
 };
 
+const getUserProfile = async (req, res, next) => {
+  try {
+    const userId = toPositiveInt(req.query.userId ?? req.params?.userId ?? req.body?.userId, null);
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+    const user = await userService.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ data: user, message: "User profile fetched successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const editUserProfile = async (req, res, next) => {
+  try {
+    const payload = req.body || {};
+    const userId = toPositiveInt(payload.userId, null);
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+    const existing = await userService.getUserById(userId);
+    if (!existing) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const user = await userService.updateUser({
+      userId,
+      userName: payload.userName ?? existing.userName,
+      email: payload.email ?? existing.email,
+      contact: payload.phone ?? payload.contact ?? existing.contact,
+      address: payload.address ?? existing.address,
+      establishmentName: payload.establishmentName ?? existing.establishmentName,
+      establishmentTypeId: payload.establishmentTypeId ?? existing.establishmentTypeId,
+      adharNo: payload.adharNo ?? existing.adharNo,
+      adharCard: payload.adharCard ?? existing.adharCard,
+      panNo: payload.panNo ?? existing.panNo,
+      pan: payload.pan ?? existing.pan,
+      city: payload.city ?? existing.city,
+      pincode: payload.pincode ?? existing.pincode,
+      state: payload.state ?? existing.state,
+      alternatePhone: payload.alternatePhone ?? existing.alternatePhone,
+      shopAct: payload.shopAct ?? existing.shopAct,
+      accName: payload.accName ?? existing.accName,
+      accNo: payload.accNo ?? existing.accNo,
+      bankName: payload.bankName ?? existing.bankName,
+      branch: payload.branch ?? existing.branch,
+      ifsc: payload.ifsc ?? existing.ifsc,
+      cheque: payload.cheque ?? existing.cheque,
+      logo: payload.logo ?? existing.logo,
+    });
+    res.json({ message: "User profile updated successfully", data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateUser = async (req, res, next) => {
   try {
     const payload = req.body || {};
@@ -100,5 +158,7 @@ module.exports = {
   updateUserStatus,
   addUser,
   viewUser,
+  getUserProfile,
+  editUserProfile,
   updateUser,
 };

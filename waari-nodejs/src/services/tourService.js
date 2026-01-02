@@ -4569,6 +4569,47 @@ const buildTopFiveGroupJourneyRecords = () => {
   }).sort((a, b) => a.sequence - b.sequence);
 };
 
+const findTopFiveGroupJourneyIndex = (journeyId) =>
+  TOP_FIVE_GROUP_JOURNEY_LAYOUT.findIndex(
+    (entry) => toPositiveInt(entry.topFiveGroupJourneyId, null) === journeyId
+  );
+
+const normalizeTopFiveGroupJourneyRecord = (entry, fallbackId) => {
+  const id = toPositiveInt(entry.topFiveGroupJourneyId, fallbackId) || fallbackId || 1;
+  const title = selectSanitizedValue(entry.title, entry.tourName || `Journey ${id}`);
+  const image =
+    entry.topFiveGroupJourneyImageUrl || entry.topFiveGroupJourneyImage || entry.imageUrl || DEFAULT_WEBSITE_BANNER;
+  const pathUrl =
+    entry.topFiveGroupJourneyPathUrl || entry.topFiveGroupJourneyPath || entry.detailPath;
+  return {
+    topFiveGroupJourneyId: id,
+    groupTourId: toPositiveInt(entry.groupTourId, null) || null,
+    title,
+    subTitle: selectSanitizedValue(entry.subTitle, ""),
+    topFiveGroupJourneyImageUrl: selectSanitizedValue(image, DEFAULT_WEBSITE_BANNER),
+    topFiveGroupJourneyPathUrl:
+      selectSanitizedValue(pathUrl, `https://waari.travel/journeys/${slugify(title, `journey-${id}`)}`),
+    sequence: toPositiveInt(entry.sequence, fallbackId) || fallbackId || 1,
+  };
+};
+
+const updateTopFiveGroupJourney = (payload = {}) => {
+  const id = toPositiveInt(payload.topFiveGroupJourneyId, null);
+  if (!id) {
+    return { data: null, message: "topFiveGroupJourneyId is required" };
+  }
+  const index = findTopFiveGroupJourneyIndex(id);
+  if (index === -1) {
+    return { data: null, message: "Top five journey not found" };
+  }
+  const normalized = normalizeTopFiveGroupJourneyRecord(
+    { ...TOP_FIVE_GROUP_JOURNEY_LAYOUT[index], ...payload, topFiveGroupJourneyId: id },
+    id
+  );
+  TOP_FIVE_GROUP_JOURNEY_LAYOUT[index] = normalized;
+  return { data: cloneValue(normalized, {}), message: "Top five journey updated successfully" };
+};
+
 const listTopFiveGroupJourneys = ({ page = 1, perPage = 10 } = {}) => {
   const pageNumber = toPositiveInt(page, 1) || 1;
   const perPageNumber = toPositiveInt(perPage, 10) || 10;
@@ -8921,6 +8962,7 @@ module.exports = {
   updateHomePageJourneys,
   listTopFiveGroupJourneys,
   getTopFiveGroupJourney,
+  updateTopFiveGroupJourney,
   listWebsiteReviews,
   addWebsiteReview,
   getWebsiteReview,
