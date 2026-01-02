@@ -10,6 +10,7 @@ const geoRoutes = require("./geoRoutes");
 const tourRoutes = require("./tourRoutes");
 const couponRoutes = require("./couponRoutes");
 const feedbackRoutes = require("./feedbackRoutes");
+const workflowRoutes = require("./workflowRoutes");
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use(tourRoutes);
 router.use(teamRoutes);
 router.use(couponRoutes);
 router.use(feedbackRoutes);
+router.use(workflowRoutes);
 router.use("/role", roleRoutes);
 router.use("/teams", teamRoutes);
 
