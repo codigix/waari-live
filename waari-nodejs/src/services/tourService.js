@@ -476,6 +476,34 @@ let officeDetailSequence = OFFICE_DETAIL_ENTRIES.reduce(
   OFFICE_DETAIL_ENTRIES.length
 );
 
+const deriveInitialGroupPaymentSequence = () => {
+  if (!groupPaymentOverrides || typeof groupPaymentOverrides !== "object") {
+    return 900000;
+  }
+  const keys = Object.keys(groupPaymentOverrides);
+  if (!keys.length) {
+    return 900000;
+  }
+  return Math.max(
+    900000,
+    keys.reduce((max, key) => {
+      const numericKey = Number(key);
+      if (Number.isFinite(numericKey) && numericKey > max) {
+        return numericKey;
+      }
+      const storedId = Number(groupPaymentOverrides[key]?.groupPaymentDetailId);
+      return Number.isFinite(storedId) && storedId > max ? storedId : max;
+    }, 900000)
+  );
+};
+
+let groupPaymentDetailSequence = deriveInitialGroupPaymentSequence();
+
+const nextGroupPaymentDetailId = () => {
+  groupPaymentDetailSequence += 1;
+  return groupPaymentDetailSequence;
+};
+
 const BILLING_DEFAULT_METRICS = {
   loyaltyBooking: 9,
   welcomeBooking: 4,
@@ -2133,6 +2161,17 @@ const selectSanitizedValue = (value, fallback = "") => {
   }
   const text = sanitizeText(value);
   return text || fallback;
+};
+
+const toSortableTimestamp = (value) => {
+  if (!value) {
+    return 0;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
 
 const classifyFollowUpByDate = (dateStr) => {
@@ -7609,9 +7648,47 @@ const getGroupPaymentOverride = (groupPaymentDetailId) => {
     return {};
   }
   if (!groupPaymentOverrides[id]) {
-    groupPaymentOverrides[id] = {};
+    groupPaymentOverrides[id] = { groupPaymentDetailId: id };
+  } else if (!groupPaymentOverrides[id].groupPaymentDetailId) {
+    groupPaymentOverrides[id].groupPaymentDetailId = id;
   }
   return groupPaymentOverrides[id];
+};
+
+const normalizePaymentDate = (value) => {
+  if (!value) {
+    return formatDateOnly(new Date());
+  }
+  const parsed = toDate(value);
+  return parsed ? formatDateOnly(parsed) : value;
+};
+
+const hydrateGroupPaymentEntry = (context, entry, override = {}) => {
+  const resolvedId = toPositiveInt(override.groupPaymentDetailId, entry.groupPaymentDetailId);
+  const paymentModeMeta = resolvePaymentModeMeta(override.paymentModeId ?? entry.paymentModeId);
+  const onlineMeta = resolveOnlineTypeMeta(override.onlineTypeId ?? entry.onlineTypeId);
+  return {
+    ...entry,
+    ...override,
+    groupPaymentDetailId: resolvedId,
+    enquiryGroupId: entry.enquiryGroupId || context.enquiryGroupId,
+    familyHeadGtId: entry.familyHeadGtId || context.familyHead.familyHeadGtId,
+    status: override.status ?? entry.status ?? 0,
+    paymentModeId: paymentModeMeta.paymentModeId,
+    paymentModeName: override.paymentModeName || paymentModeMeta.paymentModeName,
+    paymentMode: override.paymentModeName || paymentModeMeta.paymentModeName,
+    onlineTypeId: onlineMeta.onlineTypeId,
+    onlineTypeName: override.onlineTypeName || onlineMeta.onlineTypeName,
+    paymentDate: normalizePaymentDate(override.paymentDate || entry.paymentDate),
+    bankName: selectSanitizedValue(override.bankName, entry.bankName || "Waari Bank"),
+    chequeNo: selectSanitizedValue(override.chequeNo, entry.chequeNo || ""),
+    transactionId: selectSanitizedValue(override.transactionId, entry.transactionId || `TXN${resolvedId}`),
+    transactionProof: selectSanitizedValue(
+      override.transactionProof,
+      entry.transactionProof || `${DOCUMENT_BASE_URL}/payments/${resolvedId}.pdf`
+    ),
+    receiptNo: override.receiptNo || entry.receiptNo || `REC-${resolvedId}`,
+  };
 };
 
 const buildGroupAdvancePayments = (context, payment, receiptPrefix) => {
@@ -7646,27 +7723,42 @@ const buildGroupAdvancePayments = (context, payment, receiptPrefix) => {
       receiptNo: `${receiptPrefix}-2`,
     });
   }
-  return entries.map((entry) => {
-    const override = getGroupPaymentOverride(entry.groupPaymentDetailId);
-    const paymentModeMeta = resolvePaymentModeMeta(override.paymentModeId ?? entry.paymentModeId);
-    const onlineMeta = resolveOnlineTypeMeta(override.onlineTypeId ?? entry.onlineTypeId);
-    return {
-      ...entry,
-      ...override,
-      status: override.status ?? entry.status,
-      paymentModeId: paymentModeMeta.paymentModeId,
-      paymentModeName: override.paymentModeName || paymentModeMeta.paymentModeName,
-      paymentMode: override.paymentModeName || paymentModeMeta.paymentModeName,
-      onlineTypeId: onlineMeta.onlineTypeId,
-      onlineTypeName: override.onlineTypeName || onlineMeta.onlineTypeName,
-      paymentDate: override.paymentDate || entry.paymentDate,
-      bankName: override.bankName || entry.bankName || "Waari Bank",
-      chequeNo: override.chequeNo || entry.chequeNo || "",
-      transactionId: override.transactionId || entry.transactionId || `TXN${entry.groupPaymentDetailId}`,
-      transactionProof:
-        override.transactionProof || entry.transactionProof || `${DOCUMENT_BASE_URL}/payments/${entry.groupPaymentDetailId}.pdf`,
-    };
-  });
+  const baseEntries = entries.map((entry) =>
+    hydrateGroupPaymentEntry(context, entry, getGroupPaymentOverride(entry.groupPaymentDetailId))
+  );
+  const entryIds = new Set(entries.map((entry) => Number(entry.groupPaymentDetailId)));
+  const manualEntries = Object.values(groupPaymentOverrides || {})
+    .filter((override) => override && toPositiveInt(override.groupPaymentDetailId, null))
+    .filter(
+      (override) =>
+        Number(override.enquiryGroupId) === Number(context.enquiryGroupId) &&
+        Number(override.familyHeadGtId) === Number(context.familyHead.familyHeadGtId)
+    )
+    .filter((override) => !entryIds.has(Number(override.groupPaymentDetailId)))
+    .map((override, index) =>
+      hydrateGroupPaymentEntry(
+        context,
+        {
+          groupPaymentDetailId: toPositiveInt(override.groupPaymentDetailId, null),
+          enquiryGroupId: context.enquiryGroupId,
+          familyHeadGtId: context.familyHead.familyHeadGtId,
+          advancePayment: toNumber(override.advancePayment, 0),
+          status: override.status ?? 0,
+          paymentModeId: override.paymentModeId || 1,
+          onlineTypeId: override.onlineTypeId || 1,
+          paymentDate: override.paymentDate || formatDateOnly(new Date()),
+          bankName: override.bankName,
+          chequeNo: override.chequeNo,
+          transactionId: override.transactionId || `TXN${override.groupPaymentDetailId}`,
+          transactionProof: override.transactionProof || `${DOCUMENT_BASE_URL}/payments/${override.groupPaymentDetailId}.pdf`,
+          receiptNo: override.receiptNo || `${receiptPrefix}-${entries.length + index + 1}`,
+        },
+        override
+      )
+    );
+  const combined = [...baseEntries, ...manualEntries];
+  combined.sort((a, b) => toSortableTimestamp(b.paymentDate) - toSortableTimestamp(a.paymentDate));
+  return combined;
 };
 
 const buildGroupBillingPayload = (context) => {
@@ -7693,6 +7785,72 @@ const buildGroupBillingPayload = (context) => {
     balance,
     isPaymentDone: balance <= 0,
     advancePayments,
+  };
+};
+
+const receiveGroupBill = async ({
+  enquiryGroupId,
+  familyHeadGtId,
+  advancePayment,
+  paymentModeId,
+  onlineTypeId,
+  bankName,
+  chequeNo,
+  paymentDate,
+  transactionId,
+  transactionProof,
+} = {}) => {
+  const groupId = toPositiveInt(enquiryGroupId, null);
+  if (!groupId) {
+    const error = new Error("enquiryGroupId is required");
+    error.status = 400;
+    throw error;
+  }
+  const amount = roundCurrency(toNumber(advancePayment, null));
+  if (!amount || amount <= 0) {
+    const error = new Error("advancePayment must be greater than zero");
+    error.status = 400;
+    throw error;
+  }
+  const context = resolveFamilyHeadContext({ enquiryGroupId: groupId, familyHeadGtId });
+  if (!context.familyHead || !context.tour) {
+    const error = new Error("Family head data not found");
+    error.status = 404;
+    throw error;
+  }
+  const paymentId = nextGroupPaymentDetailId();
+  const paymentModeMeta = resolvePaymentModeMeta(paymentModeId);
+  const onlineMeta = resolveOnlineTypeMeta(onlineTypeId);
+  const normalizedDate = normalizePaymentDate(paymentDate);
+  const override = {
+    groupPaymentDetailId: paymentId,
+    enquiryGroupId: context.enquiryGroupId,
+    familyHeadGtId: context.familyHead.familyHeadGtId,
+    advancePayment: amount,
+    status: 0,
+    paymentModeId: paymentModeMeta.paymentModeId,
+    paymentModeName: paymentModeMeta.paymentModeName,
+    onlineTypeId: onlineMeta.onlineTypeId,
+    onlineTypeName: onlineMeta.onlineTypeName,
+    bankName: selectSanitizedValue(bankName, ""),
+    chequeNo: selectSanitizedValue(chequeNo, ""),
+    paymentDate: normalizedDate,
+    transactionId: selectSanitizedValue(transactionId, `TXN${paymentId}`),
+    transactionProof: selectSanitizedValue(transactionProof, `${DOCUMENT_BASE_URL}/payments/${paymentId}.pdf`),
+    receiptNo: `REC-${context.familyHead.familyHeadGtId || context.enquiryGroupId}-${paymentId}`,
+    createdAt: new Date().toISOString(),
+  };
+  groupPaymentOverrides[paymentId] = override;
+  await persistTourFixture("groupPaymentOverrides");
+  const billing = buildGroupBillingPayload(context) || {};
+  return {
+    success: true,
+    groupPaymentDetailId: paymentId,
+    enquiryGroupId: context.enquiryGroupId,
+    familyHeadGtId: context.familyHead.familyHeadGtId,
+    balance: billing.balance,
+    data: override,
+    message: "Payment recorded successfully",
   };
 };
 
@@ -9050,6 +9208,7 @@ module.exports = {
   getPaymentCalculationDetails,
   getCustomPaymentCalculationDetails,
   getGroupBillView,
+  receiveGroupBill,
   getGroupNewPaymentDetails,
   updateGroupPaymentStatus,
   getGroupReceiptDetails,

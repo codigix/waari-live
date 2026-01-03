@@ -1896,6 +1896,15 @@ const getGroupBillView = (req, res, next) => {
   }
 };
 
+const receiveGroupBill = async (req, res, next) => {
+  try {
+    const response = await tourService.receiveGroupBill(req.body || {});
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getGroupNewPaymentDetails = (req, res, next) => {
   try {
     const response = tourService.getGroupNewPaymentDetails({
@@ -2508,6 +2517,7 @@ module.exports = {
   getGroupPaymentBill,
   getCustomPaymentBill,
   getGroupBillView,
+  receiveGroupBill,
   getGroupNewPaymentDetails,
   updateGroupPaymentStatus,
   getGroupReceiptDetails,

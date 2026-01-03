@@ -79,6 +79,7 @@ router.get("/get-payment-calculation-ct", tourController.getPaymentCalculationCt
 router.get("/view-payment-bill-gt", tourController.getGroupPaymentBill);
 router.get("/view-payment-bill-ct", tourController.getCustomPaymentBill);
 router.get("/view-bill-group-tour", tourController.getGroupBillView);
+router.post("/receivebill-group-tour", tourController.receiveGroupBill);
 router.get("/viewNew-pay-details", tourController.getGroupNewPaymentDetails);
 router.post("/update-pay-status", tourController.updateGroupPaymentStatus);
 router.get("/view-receipt", tourController.getGroupReceiptDetails);

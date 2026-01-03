@@ -5,6 +5,18 @@ import { get } from "../../../../services/apiServices";
 import { Tooltip } from "@mui/material";
 import BackButton from "../../common/BackButton";
 
+const safeArray = (value, fallback = []) => (Array.isArray(value) ? value : fallback);
+const padArray = (value, minLength) => {
+	const entries = safeArray(value).map((entry) => entry || {});
+	if (!entries.length) {
+		return [];
+	}
+	if (entries.length >= minLength) {
+		return entries;
+	}
+	return [...entries, ...Array.from({ length: minLength - entries.length }, () => ({}))];
+};
+
 const ViewTourDetails = ({tourId}) => {
 
 	const [data, setData] = useState([]);
@@ -28,20 +40,20 @@ const ViewTourDetails = ({tourId}) => {
 			setIsLoading(true);
 			const response = await get(`/view-details-group-tour?groupTourId=${tourId}`);
 
-			setData(response.data);
-			setGrouptour(response?.data?.detailGroupTour);
-			setSkeleton(response?.data?.skeletonItinerary);
-			setTourprice(response?.data?.tourPrice);
-			setDetailedItinerary(response?.data?.detailedItinerary);
-			setVisaDetails(response?.data?.visaDocuments);
-			setFlightDetails(response?.data?.flightDetails);
-			setTrainDetails(response?.data?.trainDetails);
-			setSeatAvailable(response?.data?.seatsAvailable);
-			setD2dDetails(response?.data?.dtod);
-			setInclusions(response?.data?.inclusions);
-			setExclusions(response?.data?.exclusions);
-			setPrintPdfURL(response?.data?.printUrl);
-			setNotes(response?.data?.notes);
+			setData(response?.data || {});
+			setGrouptour(safeArray(response?.data?.detailGroupTour));
+			setSkeleton(safeArray(response?.data?.skeletonItinerary));
+			setTourprice(safeArray(response?.data?.tourPrice));
+			setDetailedItinerary(safeArray(response?.data?.detailedItinerary));
+			setVisaDetails(safeArray(response?.data?.visaDocuments));
+			setFlightDetails(padArray(response?.data?.flightDetails, 2));
+			setTrainDetails(padArray(response?.data?.trainDetails, 2));
+			setSeatAvailable(response?.data?.seatsAvailable ?? "");
+			setD2dDetails(response?.data?.dtod ?? "");
+			setInclusions(safeArray(response?.data?.inclusions, [{ description: "" }]));
+			setExclusions(safeArray(response?.data?.exclusions, [{ description: "" }]));
+			setPrintPdfURL(response?.data?.printUrl || "");
+			setNotes(safeArray(response?.data?.notes));
 			setIsLoading(false);
 		} catch (error) {
 			setIsLoading(false);
@@ -635,7 +647,7 @@ const ViewTourDetails = ({tourId}) => {
 													<div className="col-lg-3 col-md-4 col-sm-6 col-12 mb-2">
 														<label>Meal</label>
 														<div>
-															{item.mealTypeId.map((md) => (
+															{(Array.isArray(item.mealTypeId) ? item.mealTypeId : []).map((md) => (
 																<div className="form-check form-check-inline">
 																	<label
 																		className="form-check-label"
