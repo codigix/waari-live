@@ -100,6 +100,19 @@ const ConfirmGrouptour = () => {
       key: "balance",
       width: 90,
     },
+    {
+      title: "Create Booking",
+      render: (item) => (
+        <button
+          className="btn btn-outline-primary btn-sm text-uppercase w-100"
+          onClick={() => navigate(`/booking/${item.enquiryGroupId}`)}
+        >
+          Create Booking
+        </button>
+      ),
+      key: "createBooking",
+      width: 140,
+    },
 
     {
       title: "Billing",

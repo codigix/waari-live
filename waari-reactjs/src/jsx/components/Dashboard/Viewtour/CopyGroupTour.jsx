@@ -277,7 +277,22 @@ function CopyGroupTour() {
       formik.setFieldValue("bookAfter", response.data.data.dtod[0].bookAfter);
       formik.setFieldValue("inclusions", response.data.data.inclusions);
       formik.setFieldValue("exclusions", response.data.data.exclusions);
-      formik.setFieldValue("note", response.data.data.note);
+      const rawNotes =
+        response.data.data.note ?? response.data.data.notes ?? [];
+      const noteArray = Array.isArray(rawNotes)
+        ? rawNotes
+        : rawNotes
+        ? [rawNotes]
+        : [];
+      const normalizedNotes = noteArray.length
+        ? noteArray.map((item) => ({
+            note:
+              typeof item === "string"
+                ? item
+                : item?.note ?? item?.description ?? "",
+          }))
+        : [{ note: "" }];
+      formik.setFieldValue("note", normalizedNotes);
       formik.setFieldValue("shopping", response.data.data.shopping);
       formik.setFieldValue("weather", response.data.data.weather);
       formik.setFieldValue("visaDocuments", response.data.data.visaDocuments);
@@ -332,28 +347,22 @@ function CopyGroupTour() {
     }
 
     if (toursData?.detailedItinerary?.length && dayDifference) {
-      formik.setFieldValue("detailIntenirary", toursData.detailedItinerary);
-    }
-
-    if (toursData && dayDifference) {
-      // Transform the backend data to match the frontend structure
+      const itineraryImages = toursData.grouptouritineraryimages || {};
       const transformedImages = toursData.detailedItinerary.map((itinerary) => {
-        // Collect images for both types (places and hotels)
         const placeImages =
-          toursData.grouptouritineraryimages["0"]?.map((image) => ({
+          itineraryImages["0"]?.map((image) => ({
             itineraryImageName: image.itineraryImageName,
             itineraryImageUrl: image.itineraryImageUrl,
             type: image.type,
           })) || [];
 
         const hotelImages =
-          toursData.grouptouritineraryimages["1"]?.map((image) => ({
+          itineraryImages["1"]?.map((image) => ({
             itineraryImageName: image.itineraryImageName,
             itineraryImageUrl: image.itineraryImageUrl,
             type: image.type,
           })) || [];
 
-        // Combine both place and hotel images
         const allImages = [...placeImages, ...hotelImages];
 
         return {

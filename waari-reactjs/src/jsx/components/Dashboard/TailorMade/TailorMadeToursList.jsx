@@ -381,6 +381,29 @@ const TailorMadeToursList = () => {
       width: 150,
     },
     {
+      title: "Enquiries",
+      render: (item) => (
+        <button
+          className="btn btn-outline-primary btn-sm text-uppercase w-100"
+          onClick={() =>
+            navigate("/customized-tour", {
+              state: {
+                prefillCustomTour: {
+                  tailorMadeId: item.tailorMadeId,
+                  tourName: item.tourName,
+                  tourCode: item.tourCode,
+                },
+              },
+            })
+          }
+        >
+          View Enquiries
+        </button>
+      ),
+      key: "custom-enquiries",
+      width: 130,
+    },
+    {
       title: "PDF",
       render: (item) => (
         <>

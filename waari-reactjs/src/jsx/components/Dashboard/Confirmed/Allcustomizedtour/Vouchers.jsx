@@ -112,10 +112,9 @@ const Vouchers = ({ enquiryId }) => {
 	const getVoucherTypes = async () => {
 		try {
 			const response = await get(`/dropdown-vouchers-name`);
-			setVoucherTypes(response?.data?.data);
-			// console.log(response)
+			setVoucherTypes(response?.data?.data || []);
 		} catch (error) {
-			setVoucherTypes({});
+			setVoucherTypes([]);
 			console.log(error);
 		}
 	};
@@ -148,7 +147,7 @@ const Vouchers = ({ enquiryId }) => {
 								<div className="needs-validation">
 									<div className="row">
 										<div className="col-md-12 col-lg-6 col-sm-12">
-											{voucherTypes.map((voucher) => (
+											{Array.isArray(voucherTypes) && voucherTypes.map((voucher) => (
 												<div key={voucher.voucherTypeId} className="row">
 													<div
 														className="col-md-6 col-sm-6 col-lg-6 col-12 d-flex"

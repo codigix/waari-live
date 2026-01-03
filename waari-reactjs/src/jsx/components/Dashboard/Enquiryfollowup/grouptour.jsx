@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Table from "../../table/VTable";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";

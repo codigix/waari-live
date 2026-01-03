@@ -13,6 +13,46 @@ import PopupModal from "../../Popups/PopupModal";
 import { hasComponentPermission } from "../../../../auth/PrivateRoute";
 import { useSelector } from "react-redux";
 
+const normalizeChildrenAges = (value) => {
+    const toNumberList = (list) =>
+        list
+            .map((entry) => Number(entry))
+            .filter((entry) => !Number.isNaN(entry));
+    if (Array.isArray(value)) {
+        return toNumberList(value);
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return [];
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                const normalized = toNumberList(parsed);
+                if (normalized.length) {
+                    return normalized;
+                }
+            }
+        } catch (error) {
+            const normalized = toNumberList(trimmed.split(","));
+            if (normalized.length) {
+                return normalized;
+            }
+        }
+        const numeric = Number(trimmed);
+        return Number.isNaN(numeric) ? [] : [numeric];
+    }
+    if (typeof value === "number") {
+        return Number.isNaN(value) ? [] : [value];
+    }
+    if (value === undefined || value === null) {
+        return [];
+    }
+    const numeric = Number(value);
+    return Number.isNaN(numeric) ? [] : [numeric];
+};
+
 const Journeyct = ({ enquiryId }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [areFamilyHeadsDataSubmitting, setAreFamilyHeadsDataSubmitting] = useState(false);
@@ -186,7 +226,7 @@ const Journeyct = ({ enquiryId }) => {
             mealplan: dataToPatch?.mealPlanId ? dataToPatch?.mealPlanId : "",
             totalextrabed: dataToPatch?.extraBed ? dataToPatch?.extraBed : "",
             totalrooms: dataToPatch?.rooms ? dataToPatch?.rooms : "",
-            childrenages: dataToPatch?.age || [],
+            childrenages: normalizeChildrenAges(dataToPatch?.age),
             adults: dataToPatch?.adults ? dataToPatch?.adults : "",
             child: dataToPatch?.child ? dataToPatch?.child : "",
             hotel: dataToPatch?.hotelCatId ? dataToPatch?.hotelCatId : "",
@@ -906,7 +946,7 @@ const Journeyct = ({ enquiryId }) => {
                                         </div>
                                     </div>
                                 </div>
-                                {validation.values.childrenages &&
+                                {Array.isArray(validation.values.childrenages) &&
                                     validation.values.childrenages.length > 0 && (
                                         <div className="mb-2 col-md-6">
                                             <label>Childrens Ages</label>

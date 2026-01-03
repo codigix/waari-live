@@ -14,10 +14,32 @@ import BackButton from "../../common/BackButton";
 
 const url = import.meta.env.VITE_WAARI_BASEURL;
 
+const isValidImageUrl = (value) => {
+    if (!value) {
+        return false;
+    }
+
+    const normalized = value.trim();
+    if (!normalized) {
+        return false;
+    }
+
+    if (/^https?:\/\//i.test(normalized)) {
+        try {
+            new URL(normalized);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    return normalized.startsWith("/") || normalized.startsWith("uploads/");
+};
+
 const validationSchema = Yup.object().shape({
     tourTypeImage: Yup.string()
         .required("Image URL is required")
-        .url("Invalid URL format for the image"),
+        .test("is-valid-tour-type-image", "Invalid URL format for the image", isValidImageUrl),
     tourTypeName: Yup.string().required("Tour Type Name is required"),
 });
 

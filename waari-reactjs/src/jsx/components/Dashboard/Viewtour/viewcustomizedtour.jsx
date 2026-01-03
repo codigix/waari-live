@@ -178,7 +178,10 @@ const ViewCustomizedtour = () => {
 							</div>
 							<div className="card">
 								<div className="card-body">
-									<form>
+									<div className="alert alert-info shadow-sm">
+								<strong>Live Customized Tours.</strong> Every record is a confirmed customer journey derived from an enquiry template.
+							</div>
+							<form>
 										<div className="row">
 											<div className="col-md-3">
 												<div className="mb-2">

@@ -9,6 +9,32 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import BackButton from "../../common/BackButton";
 
+const normalizeChildrenAges = (value) => {
+	if (Array.isArray(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		try {
+			const parsed = JSON.parse(value);
+			if (Array.isArray(parsed)) {
+				return parsed;
+			}
+		} catch (error) {
+			const tokens = value
+				.split(/[\,\s]+/)
+				.map((token) => token.trim())
+				.filter(Boolean);
+			if (tokens.length) {
+				return tokens;
+			}
+		}
+	}
+	if (value === null || value === undefined || value === "") {
+		return [];
+	}
+	return [value];
+};
+
 const EditCustomizeTour = () => {
     const { id } = useParams()
     const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +170,7 @@ const EditCustomizeTour = () => {
             mealplan: dataToPatch?.mealPlanId ? dataToPatch?.mealPlanId : "",
             totalextrabed: dataToPatch?.extraBed ? dataToPatch?.extraBed : "",
             totalrooms: dataToPatch?.rooms ? dataToPatch?.rooms : "",
-            childrenages: dataToPatch?.age || [],
+            childrenages: normalizeChildrenAges(dataToPatch?.age),
             adults: dataToPatch?.adults ? dataToPatch?.adults : "",
             child: dataToPatch?.child ? dataToPatch?.child : "",
             hotel: dataToPatch?.hotelCatId ? dataToPatch?.hotelCatId : "",

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { get, post } from "../../../../services/apiServices";
+import { post } from "../../../../services/apiServices";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { NoImage } from "../../../utils/assetsPaths";
@@ -44,6 +44,14 @@ const detailedItineraryObj = {
     },
   ],
 };
+
+const createEmptyItinerary = () => ({
+  ...detailedItineraryObj,
+  mealTypeId: [],
+  grouptouritineraryimages: detailedItineraryObj.grouptouritineraryimages.map((image) => ({
+    ...image,
+  })),
+});
 
 function formatIternaryDate(date, index) {
   const currentDate = new Date(date);
@@ -168,29 +176,31 @@ const DetailInteniraryForm = ({
     },
   });
 
-  const addDetailsItenerary = () => {
+  const addDetailsItenerary = (length = 0) => {
+    const totalDays = Number(length) || 0;
+    if (!totalDays) {
+      formik.setFieldValue("detailIntenirary", []);
+      return;
+    }
     formik.setFieldValue(
       "detailIntenirary",
-      Array.from({ length: dayDifference }, () => ({
-        ...detailedItineraryObj,
-      }))
+      Array.from({ length: totalDays }, () => createEmptyItinerary())
     );
   };
 
   const handleAddImage = (index) => {
-    formik.setFieldValue(
-      `detailIntenirary[${index}].grouptouritineraryimages`,
-      [
-        ...formik.values.detailIntenirary[index].grouptouritineraryimages,
-        { itineraryImageName: "", itineraryImageUrl: "", type: 1 }, // default type = 1 (Hotel)
-      ]
-    );
+    const images =
+      formik.values.detailIntenirary?.[index]?.grouptouritineraryimages || [];
+    formik.setFieldValue(`detailIntenirary[${index}].grouptouritineraryimages`, [
+      ...images,
+      { itineraryImageName: "", itineraryImageUrl: "", type: 1 },
+    ]);
   };
 
   const handleRemoveImage = (index, subIndex) => {
-    const updatedImages = formik.values.detailIntenirary[
-      index
-    ].grouptouritineraryimages.filter((_, i) => i !== subIndex);
+    const images =
+      formik.values.detailIntenirary?.[index]?.grouptouritineraryimages || [];
+    const updatedImages = images.filter((_, i) => i !== subIndex);
     formik.setFieldValue(
       `detailIntenirary[${index}].grouptouritineraryimages`,
       updatedImages
@@ -198,56 +208,50 @@ const DetailInteniraryForm = ({
   };
 
   const handleCheckboxChange = (index, mealType) => {
-    formik.setFieldValue(
-      `detailIntenirary[${index}].mealTypeId`,
-      formik.values.detailIntenirary[index]?.mealTypeId.includes(mealType)
-        ? formik.values.detailIntenirary[index].mealTypeId.filter(
-            (item) => item !== mealType
-          )
-        : [...formik.values.detailIntenirary[index].mealTypeId, mealType]
-    );
+    const meals = formik.values.detailIntenirary?.[index]?.mealTypeId || [];
+    const updatedMeals = meals.includes(mealType)
+      ? meals.filter((item) => item !== mealType)
+      : [...meals, mealType];
+    formik.setFieldValue(`detailIntenirary[${index}].mealTypeId`, updatedMeals);
   };
 
   useEffect(() => {
-    if (dayDifference) {
-      addDetailsItenerary(dayDifference);
+    if (!dayDifference) {
+      formik.setFieldValue("detailIntenirary", []);
+      return;
     }
 
-    if (toursData?.detailedItinerary?.length && dayDifference) {
-      formik.setFieldValue("detailIntenirary", toursData.detailedItinerary);
-    }
-
-    if (toursData && dayDifference) {
-      // Transform the backend data to match the frontend structure
+    const hasBackendItinerary = Array.isArray(toursData?.detailedItinerary);
+    if (hasBackendItinerary && toursData.detailedItinerary.length) {
+      const itineraryImages = toursData.grouptouritineraryimages || {};
       const transformedImages = toursData.detailedItinerary.map((itinerary) => {
-        // Collect images for both types (places and hotels)
-        const placeImages =
-          toursData.grouptouritineraryimages["0"]?.map((image) => ({
-            itineraryImageName: image.itineraryImageName,
-            itineraryImageUrl: image.itineraryImageUrl,
-            type: image.type,
-          })) || [];
-
-        const hotelImages =
-          toursData.grouptouritineraryimages["1"]?.map((image) => ({
-            itineraryImageName: image.itineraryImageName,
-            itineraryImageUrl: image.itineraryImageUrl,
-            type: image.type,
-          })) || [];
-
-        // Combine both place and hotel images
-        const allImages = [...placeImages, ...hotelImages];
+        const placeImages = Array.isArray(itineraryImages["0"])
+          ? itineraryImages["0"].map((image) => ({
+              itineraryImageName: image.itineraryImageName,
+              itineraryImageUrl: image.itineraryImageUrl,
+              type: image.type,
+            }))
+          : [];
+        const hotelImages = Array.isArray(itineraryImages["1"])
+          ? itineraryImages["1"].map((image) => ({
+              itineraryImageName: image.itineraryImageName,
+              itineraryImageUrl: image.itineraryImageUrl,
+              type: image.type,
+            }))
+          : [];
 
         return {
           ...itinerary,
-          grouptouritineraryimages: allImages,
+          mealTypeId: Array.isArray(itinerary.mealTypeId) ? itinerary.mealTypeId : [],
+          grouptouritineraryimages: [...placeImages, ...hotelImages],
         };
       });
 
-      if (transformedImages.length) {
-        formik.setFieldValue("detailIntenirary", transformedImages);
-      }
+      formik.setFieldValue("detailIntenirary", transformedImages);
+      return;
     }
+
+    addDetailsItenerary(dayDifference);
   }, [dayDifference, toursData]);
 
   // Helper function to validate image size

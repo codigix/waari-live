@@ -8,6 +8,39 @@ import { get, post } from "../../../../../services/apiServices";
 import ErrorMessageComponent from "../../FormErrorComponent/ErrorMessageComponent";
 import "react-toastify/dist/ReactToastify.css";
 
+const normalizeChildrenAges = (value) => {
+    if (Array.isArray(value)) {
+        return value;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return [];
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch (_) {}
+        return trimmed
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+            .map((entry) => {
+                const numeric = Number(entry);
+                return Number.isNaN(numeric) ? entry : numeric;
+            });
+    }
+    if (typeof value === "number") {
+        return [value];
+    }
+    if (value === null || value === undefined) {
+        return [];
+    }
+    return [];
+};
+
 const Enquirydetailct = () => {
     const { id } = useParams();
     const [isLoading, setIsLoading] = useState(false);
@@ -164,7 +197,7 @@ const Enquirydetailct = () => {
             mealplan: dataToPatch?.mealPlanId ? dataToPatch?.mealPlanId : "",
             totalextrabed: dataToPatch?.extraBed ? dataToPatch?.extraBed : "",
             totalrooms: dataToPatch?.rooms ? dataToPatch?.rooms : "",
-            childrenages: dataToPatch?.age || [],
+            childrenages: normalizeChildrenAges(dataToPatch?.age),
             adults: dataToPatch?.adults ? dataToPatch?.adults : "",
             child: dataToPatch?.child ? dataToPatch?.child : "",
             hotel: dataToPatch?.hotelCatId ? dataToPatch?.hotelCatId : "",

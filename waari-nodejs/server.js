@@ -1,210 +1,91 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
 const http = require("http");
-const socketIo = require("socket.io");
-const db = require("./db");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const bodyParser = require("body-parser");
+const app = require("./src/app");
+const config = require("./config");
+const pool = require("./db");
+const { loadTourFixtures } = require("./src/data/toursDataLoader");
 
-const app = express();
+const port = config.app.port;
 const server = http.createServer(app);
 
-console.log("🔍 Loaded from .env:");
-console.log("DB_HOST =", JSON.stringify(process.env.DB_HOST));
-console.log("DB_PORT =", JSON.stringify(process.env.DB_PORT));
-console.log("DB_USER =", JSON.stringify(process.env.DB_USER));
-console.log("DB_PASS =", JSON.stringify(process.env.DB_PASS)); // temporarily ok for debug
-console.log("DB_NAME =", JSON.stringify(process.env.DB_NAME));
-
-// ✅ Socket.io with CORS
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
-
-// ✅ Middleware
-app.use(
-  cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-// Serve static uploads folder
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/pdfs", express.static(path.join(__dirname, "src/public/pdfs")));
-
-// ✅ JWT Middleware
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "No token provided" });
-
-  jwt.verify(token, process.env.JWT_SECRET || "supersecret", (err, decoded) => {
-    if (err) return res.status(403).json({ error: "Invalid token" });
-    req.user = decoded;
-    next();
-  });
-};
-
-// ✅ Role Middleware
-const requireRole = (roleId) => (req, res, next) => {
-  if (req.user.roleId !== roleId) {
-    return res.status(403).json({ error: "Access denied" });
+const checkDatabaseConnection = async () => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.query("SELECT 1");
+    console.log(
+      `Database connection successful to ${config.database.host}:${config.database.port}`
+    );
+  } finally {
+    if (connection) connection.release();
   }
-  next();
 };
 
-// ===== Default Test Route =====
-app.get("/", (req, res) => {
-  res.send("Hello from Node.js + Socket.io + MySQL");
-});
+const ensureSuperAdminRole = async () => {
+  const [rows] = await pool.query(
+    "SELECT roleId FROM roles WHERE roleName = ? LIMIT 1",
+    ["Super Admin"]
+  );
+  if (rows.length) {
+    return rows[0].roleId;
+  }
+  const [result] = await pool.query(
+    "INSERT INTO roles (roleName, description) VALUES (?, ?)",
+    ["Super Admin", "Default administrator role"]
+  );
+  return result.insertId;
+};
 
-// ===== MySQL Test Route =====
-// app.get('/api/users', (req, res) => {
-//   db.query('SELECT * FROM users', (err, results) => {
-//     if (err) return res.status(500).json({ error: err.message });
-//     res.json(results);
-//   });
-// });
+const ensureDefaultAdminUser = async () => {
+  if (!config.admin.email || !config.admin.password) {
+    return;
+  }
+  const roleId = await ensureSuperAdminRole();
+  const [[existing]] = await pool.query(
+    "SELECT userId, password FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1",
+    [config.admin.email]
+  );
+  if (existing) {
+    if (!existing.password || !existing.password.startsWith("$2")) {
+      const hashed = await bcrypt.hash(config.admin.password, 10);
+      await pool.query("UPDATE users SET password = ? WHERE userId = ?", [hashed, existing.userId]);
+    }
+    return;
+  }
+  const hashedPassword = await bcrypt.hash(config.admin.password, 10);
+  await pool.query(
+    `INSERT INTO users (
+      firstName,
+      lastName,
+      userName,
+      email,
+      password,
+      contact,
+      roleId,
+      status
+    ) VALUES (?,?,?,?,?,?,?,1)`,
+    [
+      "Codigix",
+      "Superadmin",
+      "Codigix Superadmin",
+      config.admin.email,
+      hashedPassword,
+      "+9100000000",
+      roleId,
+    ]
+  );
+};
 
-// ===== Login API (Secure with bcrypt) =====
-// app.post('/api/login', (req, res) => {
-//   const { email, password } = req.body;
-//   if (!email || !password) {
-//     return res.status(400).json({ error: 'Email and password are required' });
-//   }
-
-//   const query = 'SELECT * FROM users WHERE email = ?';
-//   db.query(query, [email], async (err, results) => {
-//     if (err) return res.status(500).json({ error: err.message });
-
-//     const user = results[0];
-//     if (!user) {
-//       return res.status(401).json({ error: 'Invalid email or password' });
-//     }
-
-//     const match = await bcrypt.compare(password, user.password);
-//     if (!match) {
-//       return res.status(401).json({ error: 'Invalid email or password' });
-//     }
-
-//     const token = jwt.sign(
-//       { id: user.id, email: user.email, roleId: user.roleId },
-//       process.env.JWT_SECRET || 'supersecret'
-//     );
-
-//     res.json({
-//       message: 'Login successful',
-//       token,
-//       permissions: user.permissions ? JSON.parse(user.permissions) : [],
-//       roleId: user.roleId || null,
-//       userId: user.id
-//     });
-//   });
-// });
-
-// ===== Protected Route Example =====
-// app.get('/api/admin/dashboard', verifyToken, requireRole(1), (req, res) => {
-//   res.json({ message: 'Welcome Admin', user: req.user });
-// });
-
-// ===== Operation Routes =====
-const apiRouter = express.Router();
-
-const authRoutes = require("./src/routes/AuthRoute");
-apiRouter.use(authRoutes);
-
-const userRoute = require("./src/routes/user.routes");
-apiRouter.use(userRoute);
-
-const operationRoutes = require("./src/routes/operationRoutes");
-apiRouter.use("/operations", operationRoutes);
-
-const roleRoutes = require("./src/routes/roleRoutes");
-apiRouter.use("/role", roleRoutes);
-
-const userRoutes = require("./src/routes/userRoute");
-apiRouter.use("/user", userRoutes);
-
-const billRoutes = require("./src/routes/billRoute");
-apiRouter.use("/billing", billRoutes);
-
-const groupTourRoutes = require("./src/routes/groupTourRoute");
-apiRouter.use(groupTourRoutes);
-
-const GTourRoute = require("./src/routes/GTourRoute");
-apiRouter.use(GTourRoute);
-
-const roleRoute = require("./src/routes/roleRoute");
-apiRouter.use(roleRoute);
-
-const adminRoutes = require("./src/routes/admin");
-apiRouter.use(adminRoutes);
-
-const AddTourRoutes = require("./src/routes/AddTour");
-apiRouter.use(AddTourRoutes);
-
-const enqueriesRoutes = require("./src/routes/EnqueriesRoutes");
-apiRouter.use(enqueriesRoutes);
-
-const aiRoutes = require("./src/routes/aiRoutes");
-apiRouter.use("/ai", aiRoutes);
-
-// PDF Routes
-const pdfRoutes = require("./src/routes/pdfRoutes");
-apiRouter.use(pdfRoutes);
-
-// Mount API Router for both /api (standard) and / (fallback for stripped prefix)
-app.use("/api", apiRouter);
-app.use("/", apiRouter);
-
-// const cityListRoutes = require("./src/routes/cityList");
-// app.use("/api/city-list", cityListRoutes.cityList)
-// const groupTourRoutes = require("./src/routes/groupTourRoute");
-// app.use("/api/group-tour", groupTourRoutes);
-//  const adminRoutes = require("./src/routes/admin");
-// // const couponRoute = require("./src/routes/coupon");
-// app.use("/admin", adminRoutes);
-// app.use("/coupons", couponRoute);
-
-// ===== Socket.io Connection with Auth =====
-io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
-  if (!token) return next(new Error("Unauthorized"));
-
-  jwt.verify(token, process.env.JWT_SECRET || "supersecret", (err, decoded) => {
-    if (err) return next(new Error("Invalid token"));
-    socket.user = decoded;
-    next();
+const bootstrap = async () => {
+  await checkDatabaseConnection();
+  await ensureDefaultAdminUser();
+  await loadTourFixtures();
+  server.listen(port, () => {
+    console.log(`Waari backend running on port ${port}`);
   });
-});
+};
 
-io.on("connection", (socket) => {
-  console.log("🟢 A user connected:", socket.user?.email || "Unknown");
-  socket.on("disconnect", () => {
-    console.log("🔴 User disconnected");
-  });
-});
-
-// ===== Serve Frontend in Production =====
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "client", "dist")));
-  app.get(/.*/, (req, res) => {
-    res.sendFile(path.join(__dirname, "client", "dist", "index.html"));
-  });
-}
-
-// ===== Start Server =====
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+bootstrap().catch((error) => {
+  console.error("Startup failed", error);
+  process.exit(1);
 });

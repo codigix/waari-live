@@ -392,6 +392,29 @@ const ViewGrouptour = () => {
       width: 150,
     },
     {
+      title: "Enquiries",
+      render: (item) => (
+        <button
+          className="btn btn-outline-primary btn-sm text-uppercase w-100"
+          onClick={() =>
+            navigate("/group-tour", {
+              state: {
+                prefillGroupTour: {
+                  groupTourId: item.groupTourId,
+                  tourName: item.tourName,
+                  tourCode: item.tourCode,
+                },
+              },
+            })
+          }
+        >
+          View Enquiries
+        </button>
+      ),
+      key: "enquiries",
+      width: 130,
+    },
+    {
       title: "PDF",
       render: (item) => (
         <>

@@ -15,7 +15,10 @@ const ViewCustomizedTourDetails = () => {
       const response = await get(`/enquiry-ct?enquiryCustomId=${id}`);
       setData(response?.data);
       setAge(JSON.parse(response?.data?.age || "[]"));
-      setCities(response?.data?.cities);
+      const cityDetails = Array.isArray(response?.data?.cityDetails)
+        ? response?.data?.cityDetails
+        : [];
+      setCities(cityDetails);
     } catch (error) {
       console.log(error);
     }
