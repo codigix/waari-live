@@ -1896,6 +1896,108 @@ const getGroupBillView = (req, res, next) => {
   }
 };
 
+const getGroupTourBookings = (req, res, next) => {
+  try {
+    const query = req.query || {};
+    const body = req.body || {};
+    const response = tourService.getGroupTourBookings({
+      enquiryGroupId:
+        query.groupTourId || query.enquiryGroupId || body.groupTourId || body.enquiryGroupId,
+      page: query.page,
+      perPage: query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getGroupTourGuestDetails = (req, res, next) => {
+  try {
+    const query = req.query || {};
+    const body = req.body || {};
+    const response = tourService.getGroupTourGuestDetails({
+      enquiryGroupId:
+        query.groupTourId || query.enquiryGroupId || body.groupTourId || body.enquiryGroupId,
+      page: query.page,
+      perPage: query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listGroupMiscellaneousFiles = (req, res, next) => {
+  try {
+    const query = req.query || {};
+    const body = req.body || {};
+    const response = tourService.listGroupMiscellaneousFiles({
+      enquiryGroupId:
+        query.groupTourId || query.enquiryGroupId || body.groupTourId || body.enquiryGroupId,
+      page: query.page,
+      perPage: query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listGroupSupplierPayments = (req, res, next) => {
+  try {
+    const query = req.query || {};
+    const body = req.body || {};
+    const response = tourService.listGroupSupplierPayments({
+      enquiryGroupId:
+        query.groupTourId || query.enquiryGroupId || body.groupTourId || body.enquiryGroupId,
+      page: query.page,
+      perPage: query.perPage,
+    });
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const addGroupSupplierPaymentDetails = async (req, res, next) => {
+  try {
+    const query = req.query || {};
+    const body = req.body || {};
+    const paymentInput = body.paymentDetails ?? query.paymentDetails;
+    let paymentDetails = paymentInput;
+    if (typeof paymentInput === "string") {
+      try {
+        const parsed = JSON.parse(paymentInput);
+        if (Array.isArray(parsed)) {
+          paymentDetails = parsed;
+        } else if (paymentInput.trim()) {
+          paymentDetails = paymentInput
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+        }
+      } catch (error) {
+        paymentDetails = paymentInput
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+      }
+    }
+    const response = await tourService.addGroupSupplierPaymentDetails({
+      groupTourId: body.groupTourId || body.enquiryGroupId || query.groupTourId || query.enquiryGroupId,
+      supplierName: body.supplierName || query.supplierName,
+      type: body.type || query.type,
+      total: body.total || query.total,
+      paymentDetails,
+      balance: body.balance || query.balance,
+    });
+    res.status(201).json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const receiveGroupBill = async (req, res, next) => {
   try {
     const response = await tourService.receiveGroupBill(req.body || {});
@@ -2517,6 +2619,11 @@ module.exports = {
   getGroupPaymentBill,
   getCustomPaymentBill,
   getGroupBillView,
+  getGroupTourBookings,
+  getGroupTourGuestDetails,
+  listGroupMiscellaneousFiles,
+  listGroupSupplierPayments,
+  addGroupSupplierPaymentDetails,
   receiveGroupBill,
   getGroupNewPaymentDetails,
   updateGroupPaymentStatus,

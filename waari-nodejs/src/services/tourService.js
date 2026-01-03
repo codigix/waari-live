@@ -51,6 +51,8 @@ const {
   groupEnquiryCancellationLogs,
   groupPlanEnquiryAssignments,
   customPlanEnquiryAssignments,
+  groupMiscellaneousFilesRecords,
+  groupSupplierPaymentRecords,
 } = require("../data/tourDataStore");
 const { persistTourFixture } = require("../data/toursDataLoader");
 const pool = require("../../database/pool");
@@ -504,6 +506,52 @@ const nextGroupPaymentDetailId = () => {
   return groupPaymentDetailSequence;
 };
 
+const deriveInitialMiscSequence = () => {
+  let max = 1000;
+  Object.values(groupMiscellaneousFilesRecords || {}).forEach((entries) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+    entries.forEach((entry) => {
+      const id = toPositiveInt(entry && entry.miscellaneousFilesId, null);
+      if (id && id > max) {
+        max = id;
+      }
+    });
+  });
+  return max;
+};
+
+let groupMiscFilesSequence = deriveInitialMiscSequence();
+
+const nextGroupMiscFilesId = () => {
+  groupMiscFilesSequence += 1;
+  return groupMiscFilesSequence;
+};
+
+const deriveInitialSupplierPaymentSequence = () => {
+  let max = 5000;
+  Object.values(groupSupplierPaymentRecords || {}).forEach((entries) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+    entries.forEach((entry) => {
+      const id = toPositiveInt(entry && entry.supplierPaymentId, null);
+      if (id && id > max) {
+        max = id;
+      }
+    });
+  });
+  return max;
+};
+
+let groupSupplierPaymentSequence = deriveInitialSupplierPaymentSequence();
+
+const nextGroupSupplierPaymentId = () => {
+  groupSupplierPaymentSequence += 1;
+  return groupSupplierPaymentSequence;
+};
+
 const BILLING_DEFAULT_METRICS = {
   loyaltyBooking: 9,
   welcomeBooking: 4,
@@ -571,6 +619,8 @@ const BILLING_DEFAULT_TOP_SALES = [
     todaysBooking: 1,
   },
 ];
+
+const DEFAULT_COUPON_CODES = ["EARLYBIRD50", "FESTIVE25", "LOYALTYPLUS", "FLASHSALE10"];
 
 const cloneValue = (value, fallback) => JSON.parse(JSON.stringify((value !== undefined ? value : fallback)));
 
@@ -6661,6 +6711,93 @@ const listFamilyHeadData = ({ enquiryGroupId, familyHeadGtId } = {}) => {
   };
 };
 
+const ensureFamilyHeadsForGroup = (enquiryGroupId) => {
+  const id = toPositiveInt(enquiryGroupId, null);
+  if (!id) {
+    return [];
+  }
+  const listing = listFamilyHeadData({ enquiryGroupId: id });
+  if (listing.data && listing.data.length) {
+    return listing.data;
+  }
+  const tour = resolveGroupTourRecord(id);
+  if (!tour) {
+    return [];
+  }
+  const familyCount = Math.max(
+    1,
+    toPositiveInt(tour.familyHeadNo, null) || Math.ceil(resolveGroupPaxCount(tour) / 2)
+  );
+  return Array.from({ length: familyCount }, (_, index) => createFamilyHeadRecord(tour, index, familyCount)).filter(
+    Boolean
+  );
+};
+
+const buildSampleMediaList = (groupTourId, label, count = 2) => {
+  const safeLabel = slugify(label || "misc", "misc");
+  return Array.from({ length: Math.max(1, count) }, (_, index) =>
+    `${DOCUMENT_BASE_URL}/group-tours/${groupTourId || "sample"}/${safeLabel}-${index + 1}.jpg`
+  );
+};
+
+const createMiscellaneousRecord = (groupTourId, seed = 0) => {
+  const timestamp = new Date().toISOString();
+  return {
+    miscellaneousFilesId: nextGroupMiscFilesId(),
+    groupTourId,
+    busListUrl: buildSampleMediaList(groupTourId, `bus-${seed + 1}`, 2 + (seed % 2)),
+    airTicketsUrl: buildSampleMediaList(groupTourId, `air-${seed + 1}`, 2),
+    flightTicketsUrl: buildSampleMediaList(groupTourId, `flight-${seed + 1}`, 2),
+    othersUrl: buildSampleMediaList(groupTourId, `misc-${seed + 1}`, 1 + (seed % 3)),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+};
+
+const ensureGroupMiscRecords = (groupTourId) => {
+  const id = toPositiveInt(groupTourId, null);
+  if (!id) {
+    return [];
+  }
+  if (!Array.isArray(groupMiscellaneousFilesRecords[id]) || !groupMiscellaneousFilesRecords[id].length) {
+    groupMiscellaneousFilesRecords[id] = [createMiscellaneousRecord(id, 0)];
+  }
+  return groupMiscellaneousFilesRecords[id];
+};
+
+const createSupplierPaymentRecord = (groupTourId, seed = 0) => {
+  const total = roundCurrency(45000 + seed * 7500);
+  const paymentDetails = [roundCurrency(total * 0.4), roundCurrency(total * 0.3)];
+  const paidAmount = paymentDetails.reduce((sum, value) => sum + value, 0);
+  const balance = roundCurrency(Math.max(0, total - paidAmount));
+  const timestamp = new Date().toISOString();
+  return {
+    supplierPaymentId: nextGroupSupplierPaymentId(),
+    groupTourId,
+    supplierName: `Supplier ${seed + 1}`,
+    type: seed % 2 === 0 ? "Transport" : "Hotel",
+    total,
+    paymentDetails,
+    balance,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+};
+
+const ensureGroupSupplierPaymentRecords = (groupTourId) => {
+  const id = toPositiveInt(groupTourId, null);
+  if (!id) {
+    return [];
+  }
+  if (!Array.isArray(groupSupplierPaymentRecords[id]) || !groupSupplierPaymentRecords[id].length) {
+    groupSupplierPaymentRecords[id] = [
+      createSupplierPaymentRecord(id, 0),
+      createSupplierPaymentRecord(id, 1),
+    ];
+  }
+  return groupSupplierPaymentRecords[id];
+};
+
 const saveFamilyHeadDetails = async ({ enquiryGroupId, familyHead, familyHeads } = {}) => {
   const id = toPositiveInt(enquiryGroupId, null);
   if (!id) {
@@ -7785,6 +7922,353 @@ const buildGroupBillingPayload = (context) => {
     balance,
     isPaymentDone: balance <= 0,
     advancePayments,
+  };
+};
+
+const buildRoomShareSummary = (tour, bookings) => {
+  const options = resolveRoomShareOptions(tour || {});
+  if (!options.length) {
+    return [];
+  }
+  const summary = options.map((option) => ({
+    roomShareId: option.roomShareId,
+    roomShareName: option.roomShareName,
+    totalAmount: 0,
+  }));
+  bookings.forEach((row, index) => {
+    const targetIndex = index % summary.length;
+    const option = summary[targetIndex];
+    const optionSource = options[targetIndex] || {};
+    const base = toNumber(optionSource.offerPrice, optionSource.tourPrice || optionSource.commissionPrice || 0);
+    option.totalAmount = roundCurrency(option.totalAmount + base * Math.max(1, row.pax || 1));
+  });
+  return summary.map((entry) => ({
+    roomShareId: entry.roomShareId,
+    roomShareName: entry.roomShareName,
+    totalAmount: roundCurrency(entry.totalAmount || 0),
+  }));
+};
+
+const getGroupTourBookings = ({ enquiryGroupId, page = 1, perPage = 10 } = {}) => {
+  const groupId = toPositiveInt(enquiryGroupId, null);
+  if (!groupId) {
+    const error = new Error("groupTourId is required");
+    error.status = 400;
+    throw error;
+  }
+  const tour = resolveGroupTourRecord(groupId);
+  if (!tour) {
+    return {
+      enquiryGroupId: groupId,
+      data: [],
+      total: 0,
+      page: 1,
+      perPage: 10,
+      lastPage: 1,
+      roomDetails: [],
+      totalBalance: 0,
+      totalDiscount: 0,
+      totalDiscountedPrice: 0,
+      totalGST: 0,
+      totalPax: 0,
+      message: "Group tour not found",
+    };
+  }
+  const families = ensureFamilyHeadsForGroup(groupId);
+  if (!families.length) {
+    return {
+      enquiryGroupId: groupId,
+      tourName: tour.tourName || `Group Tour ${groupId}`,
+      tourCode: tour.tourCode || `GT-${groupId}`,
+      data: [],
+      total: 0,
+      page: 1,
+      perPage: 10,
+      lastPage: 1,
+      roomDetails: [],
+      totalBalance: 0,
+      totalDiscount: 0,
+      totalDiscountedPrice: 0,
+      totalGST: 0,
+      totalPax: 0,
+      message: "No booking records available",
+    };
+  }
+  const bookingRows = families.map((family, index) => {
+    const share = resolveFamilyHeadShare(tour, family);
+    const payment = buildPaymentBreakdown(share.shareAmount);
+    const context = {
+      enquiryGroupId: groupId,
+      familyHead: family,
+      tour,
+    };
+    const receiptPrefix = `REC-${family.familyHeadGtId || groupId}`;
+    const paymentdetail = buildGroupAdvancePayments(context, payment, receiptPrefix).map((entry) => ({
+      groupPaymentDetailId: entry.groupPaymentDetailId,
+      advancePayment: roundCurrency(entry.advancePayment),
+      status: entry.status ?? 0,
+      paymentDate: entry.paymentDate,
+      paymentModeName: entry.paymentModeName,
+      receiptNo: entry.receiptNo,
+    }));
+    const paidAmount = paymentdetail
+      .filter((entry) => Number(entry.status) === 1)
+      .reduce((totalPaid, entry) => totalPaid + toNumber(entry.advancePayment, 0), 0);
+    const balance = roundCurrency(Math.max(0, payment.grand - paidAmount));
+    const coupondiscountValue = roundCurrency(payment.discount * 0.4);
+    return {
+      enquiryGroupId: groupId,
+      familyHeadGtId: family.familyHeadGtId,
+      firstName: family.firstName,
+      lastName: family.lastName,
+      pax: Math.max(1, family.paxPerHead || 1),
+      tourPrice: payment.tourPrice,
+      coupondiscountValue,
+      couponName: DEFAULT_COUPON_CODES[index % DEFAULT_COUPON_CODES.length],
+      points: family.loyaltyPoints || (index + 1) * 50,
+      additionalDis: roundCurrency(payment.discount),
+      discountPrice: payment.discounted,
+      gst: payment.gst,
+      tcs: payment.tcs,
+      grandTotal: payment.grand,
+      paymentdetail,
+      balance,
+      userName: family.assignedUserName,
+    };
+  });
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const pagination = paginate(bookingRows, pageNumber, perPageNumber);
+  const totals = bookingRows.reduce(
+    (acc, row) => {
+      acc.balance += toNumber(row.balance, 0);
+      acc.discount += toNumber(row.additionalDis, 0);
+      acc.discountedPrice += toNumber(row.discountPrice, 0);
+      acc.gst += toNumber(row.gst, 0);
+      acc.pax += Math.max(1, row.pax || 1);
+      return acc;
+    },
+    { balance: 0, discount: 0, discountedPrice: 0, gst: 0, pax: 0 }
+  );
+  return {
+    enquiryGroupId: groupId,
+    tourName: tour.tourName || `Group Tour ${groupId}`,
+    tourCode: tour.tourCode || `GT-${groupId}`,
+    roomDetails: buildRoomShareSummary(tour, bookingRows),
+    totalBalance: roundCurrency(totals.balance),
+    totalDiscount: roundCurrency(totals.discount),
+    totalDiscountedPrice: roundCurrency(totals.discountedPrice),
+    totalGST: roundCurrency(totals.gst),
+    totalPax: totals.pax,
+    data: pagination.data,
+    total: pagination.total,
+    page: pagination.page,
+    perPage: pagination.perPage,
+    lastPage: pagination.lastPage,
+    message: "Group tour bookings fetched successfully",
+  };
+};
+
+const buildGuestRowsByFamily = (groupId) => {
+  const guestDirectory = buildGuestDetailRecords({ enquiryGroupId: groupId });
+  const families = ensureFamilyHeadsForGroup(groupId);
+  return families.map((family, index) => {
+    const guests = guestDirectory.filter(
+      (guest) => Number(guest.familyHeadGtId) === Number(family.familyHeadGtId)
+    );
+    const guestdetail = (guests.length ? guests : [null]).map((guest, guestIndex) => {
+      if (guest) {
+        return {
+          groupGuestDetailId: guest.guestId,
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          adharNo: guest.adharNo || guest.adharCard || "-",
+          panNo: guest.panNo || "-",
+          passportNo: guest.passportNo || "-",
+          passport_issue_date: guest.passport_issue_date || "",
+          passport_expiry_date: guest.passport_expiry_date || "",
+        };
+      }
+      const fallbackId = Number(`${family.familyHeadGtId}${guestIndex + 1}`);
+      return {
+        groupGuestDetailId: fallbackId,
+        firstName: family.firstName,
+        lastName: family.lastName,
+        adharNo: `9999${String(fallbackId).padStart(8, "0")}`,
+        panNo: `PAN${fallbackId}`,
+        passportNo: `P${String(fallbackId).padStart(7, "0")}`,
+        passport_issue_date: formatDateString(addDaysToDate(new Date(), -8 * 365)),
+        passport_expiry_date: formatDateString(addDaysToDate(new Date(), 2 * 365)),
+      };
+    });
+    return {
+      familyHeadGtId: family.familyHeadGtId,
+      familyheadfirstName: family.firstName,
+      familyheadlastName: family.lastName,
+      guestdetail,
+    };
+  });
+};
+
+const getGroupTourGuestDetails = ({ enquiryGroupId, page = 1, perPage = 10 } = {}) => {
+  const groupId = toPositiveInt(enquiryGroupId, null);
+  if (!groupId) {
+    const error = new Error("groupTourId is required");
+    error.status = 400;
+    throw error;
+  }
+  const tour = resolveGroupTourRecord(groupId);
+  if (!tour) {
+    return {
+      enquiryGroupId: groupId,
+      tourName: `Group Tour ${groupId}`,
+      tourCode: `GT-${groupId}`,
+      data: [],
+      total: 0,
+      page: 1,
+      perPage: 10,
+      lastPage: 1,
+      message: "Group tour not found",
+    };
+  }
+  const familyRows = buildGuestRowsByFamily(groupId);
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const pagination = paginate(familyRows, pageNumber, perPageNumber);
+  return {
+    enquiryGroupId: groupId,
+    tourName: tour.tourName || `Group Tour ${groupId}`,
+    tourCode: tour.tourCode || `GT-${groupId}`,
+    data: pagination.data,
+    total: pagination.total,
+    page: pagination.page,
+    perPage: pagination.perPage,
+    lastPage: pagination.lastPage,
+    message: familyRows.length ? "Group guest details fetched successfully" : "No guest details available",
+  };
+};
+
+const listGroupMiscellaneousFiles = ({ enquiryGroupId, page = 1, perPage = 10 } = {}) => {
+  const groupId = toPositiveInt(enquiryGroupId, null);
+  if (!groupId) {
+    const error = new Error("groupTourId is required");
+    error.status = 400;
+    throw error;
+  }
+  const records = ensureGroupMiscRecords(groupId).map((entry) => ({
+    ...entry,
+    busListUrl: cloneValue(entry.busListUrl, []),
+    airTicketsUrl: cloneValue(entry.airTicketsUrl, []),
+    flightTicketsUrl: cloneValue(entry.flightTicketsUrl, []),
+    othersUrl: cloneValue(entry.othersUrl, []),
+  }));
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const response = buildListResponse(records, pageNumber, perPageNumber, {}, "Miscellaneous files fetched successfully");
+  return {
+    enquiryGroupId: groupId,
+    ...response,
+  };
+};
+
+const listGroupSupplierPayments = ({ enquiryGroupId, page = 1, perPage = 10 } = {}) => {
+  const groupId = toPositiveInt(enquiryGroupId, null);
+  if (!groupId) {
+    const error = new Error("groupTourId is required");
+    error.status = 400;
+    throw error;
+  }
+  const records = ensureGroupSupplierPaymentRecords(groupId).map((entry) => ({
+    ...entry,
+    total: roundCurrency(entry.total),
+    balance: roundCurrency(entry.balance),
+    paymentDetails: JSON.stringify(entry.paymentDetails || []),
+  }));
+  const pageNumber = toPositiveInt(page, 1) || 1;
+  const perPageNumber = toPositiveInt(perPage, 10) || 10;
+  const response = buildListResponse(
+    records,
+    pageNumber,
+    perPageNumber,
+    {},
+    records.length ? "Supplier payments fetched successfully" : "No supplier payments available"
+  );
+  const totals = records.reduce(
+    (acc, row) => {
+      acc.totalPayment += toNumber(row.total, 0);
+      acc.totalBalance += toNumber(row.balance, 0);
+      return acc;
+    },
+    { totalPayment: 0, totalBalance: 0 }
+  );
+  return {
+    enquiryGroupId: groupId,
+    ...response,
+    totalPayment: roundCurrency(totals.totalPayment),
+    totalBalance: roundCurrency(totals.totalBalance),
+  };
+};
+
+const addGroupSupplierPaymentDetails = async ({
+  groupTourId,
+  supplierName,
+  type,
+  total,
+  paymentDetails,
+  balance,
+} = {}) => {
+  const groupId = toPositiveInt(groupTourId, null);
+  if (!groupId) {
+    const error = new Error("groupTourId is required");
+    error.status = 400;
+    throw error;
+  }
+  const supplier = selectSanitizedValue(supplierName, "");
+  if (!supplier) {
+    const error = new Error("supplierName is required");
+    error.status = 400;
+    throw error;
+  }
+  const supplierType = selectSanitizedValue(type, "General");
+  const payments = Array.isArray(paymentDetails)
+    ? paymentDetails
+        .map((value) => roundCurrency(toNumber(value, 0)))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (!payments.length) {
+    const error = new Error("paymentDetails is required");
+    error.status = 400;
+    throw error;
+  }
+  const totalAmount = roundCurrency(toNumber(total, null)) || roundCurrency(payments.reduce((sum, value) => sum + value, 0));
+  if (!totalAmount) {
+    const error = new Error("total is required");
+    error.status = 400;
+    throw error;
+  }
+  const paidAmount = payments.reduce((sum, value) => sum + value, 0);
+  const balanceAmount = balance !== undefined ? roundCurrency(toNumber(balance, 0)) : roundCurrency(Math.max(0, totalAmount - paidAmount));
+  const record = {
+    supplierPaymentId: nextGroupSupplierPaymentId(),
+    groupTourId: groupId,
+    supplierName: supplier,
+    type: supplierType,
+    total: totalAmount,
+    paymentDetails: payments,
+    balance: balanceAmount,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const store = ensureGroupSupplierPaymentRecords(groupId);
+  store.push(record);
+  groupSupplierPaymentRecords[groupId] = store;
+  await persistTourFixture("groupSupplierPaymentRecords");
+  return {
+    message: "Supplier payment added successfully",
+    data: {
+      ...record,
+      paymentDetails: JSON.stringify(record.paymentDetails),
+    },
   };
 };
 
@@ -9208,6 +9692,11 @@ module.exports = {
   getPaymentCalculationDetails,
   getCustomPaymentCalculationDetails,
   getGroupBillView,
+  getGroupTourBookings,
+  getGroupTourGuestDetails,
+  listGroupMiscellaneousFiles,
+  listGroupSupplierPayments,
+  addGroupSupplierPaymentDetails,
   receiveGroupBill,
   getGroupNewPaymentDetails,
   updateGroupPaymentStatus,

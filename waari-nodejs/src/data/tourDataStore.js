@@ -111,6 +111,8 @@ const groupCancellationOverrides = {};
 const groupEnquiryCancellationLogs = {};
 const groupPlanEnquiryAssignments = {};
 const customPlanEnquiryAssignments = {};
+const groupMiscellaneousFilesRecords = {};
+const groupSupplierPaymentRecords = {};
 
 module.exports = {
   tourTypes,
@@ -165,4 +167,6 @@ module.exports = {
   groupEnquiryCancellationLogs,
   groupPlanEnquiryAssignments,
   customPlanEnquiryAssignments,
+  groupMiscellaneousFilesRecords,
+  groupSupplierPaymentRecords,
 };
